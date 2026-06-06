@@ -1,7 +1,7 @@
 #![allow(clippy::use_self)]
 
 use convert_case::Casing;
-use syn::{LitStr, parse::Parse, spanned::Spanned};
+use syn::{parse::Parse, spanned::Spanned};
 
 proc_easy::easy_token!(skip);
 proc_easy::easy_token!(with);
@@ -151,7 +151,7 @@ proc_easy::easy_argument_value! {
 proc_easy::easy_argument_value! {
     struct Name {
         name: name,
-        literal: syn::LitStr,
+        expr: syn::Expr,
     }
 }
 
@@ -262,18 +262,30 @@ fn make_name(
     name: Option<Name>,
     ident: Option<&syn::Ident>,
     rename_case: Option<RenameCase>,
-) -> syn::LitStr {
+) -> proc_macro2::TokenStream {
     match name {
-        Some(name) => name.literal,
+        Some(name) => {
+            let expr = name.expr;
+            quote::quote!(#expr)
+        }
         None => match (ident, rename_case) {
-            (None, _) => LitStr::new("", proc_macro2::Span::call_site()),
-            (Some(ident), None) => LitStr::new(&ident.to_string(), ident.span()),
-            (Some(ident), Some(rename_case)) => rename_case.rename(ident),
+            (None, _) => quote::quote!(""),
+            (Some(ident), None) => {
+                let name = ident.to_string();
+                quote::quote!(#name)
+            }
+            (Some(ident), Some(rename_case)) => {
+                let name = rename_case.rename(ident);
+                quote::quote!(#name)
+            }
         },
     }
 }
 
-fn field_name(field: &syn::Field, rename_case: Option<RenameCase>) -> syn::Result<Option<LitStr>> {
+fn field_name(
+    field: &syn::Field,
+    rename_case: Option<RenameCase>,
+) -> syn::Result<Option<proc_macro2::TokenStream>> {
     let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
 
     if attributes.skip.is_some() {
@@ -605,7 +617,7 @@ fn variant_iterate_inner(
 
         let tokens = quote::quote_spanned! {variant.ident.span() =>
             #pattern => {
-                #(_f(#fields_name, _ui, #fields_probe);)*
+                #(_f(::core::convert::AsRef::<str>::as_ref(&(#fields_name)), _ui, #fields_probe);)*
             },
         };
 
@@ -724,7 +736,7 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
                             let #pattern = self;
 
                             #(
-                                _f(#fields_name, _ui, #all_fields_probe);
+                                _f(::core::convert::AsRef::<str>::as_ref(&(#fields_name)), _ui, #all_fields_probe);
                             )*
                         }
                     }
