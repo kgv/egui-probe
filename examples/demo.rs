@@ -172,7 +172,7 @@ impl EguiProbeDemoApp {
 }
 
 impl eframe::App for EguiProbeDemoApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("header").show(ctx, |ui| {
             egui::widgets::global_theme_preference_switch(ui);
         });
