@@ -1,103 +1,66 @@
 #![allow(clippy::use_self)]
 
-use convert_case::Casing;
-use syn::{LitStr, parse::Parse, spanned::Spanned};
+use self::keywords::{
+    bookmarks, by, combobox, frozen, inlined, multiline, name, range, rgb, rgba,
+    rgba_premultiplied, rgba_unmultiplied, skip, tags, toggle_switch, transparent, with,
+};
+use crate::name_display::NameDisplay as _;
+use proc_easy::EasyArgument as _;
+use syn::{parse::Parse, spanned::Spanned as _};
 
-proc_easy::easy_token!(skip);
-proc_easy::easy_token!(with);
-proc_easy::easy_token!(range);
-proc_easy::easy_token!(by);
-proc_easy::easy_token!(name);
-proc_easy::easy_token!(multiline);
-proc_easy::easy_token!(snake_case);
-proc_easy::easy_token!(camelCase);
-proc_easy::easy_token!(PascalCase);
-proc_easy::easy_token!(SCREAMING_SNAKE_CASE);
-proc_easy::easy_token!(UPPER_SNAKE_CASE);
-proc_easy::easy_token!(Train);
-proc_easy::easy_token!(kebab);
-proc_easy::easy_token!(case);
-proc_easy::easy_token!(Case);
-proc_easy::easy_token!(rename_all);
-proc_easy::easy_token!(toggle_switch);
-proc_easy::easy_token!(transparent);
-proc_easy::easy_token!(tags);
-proc_easy::easy_token!(inlined);
-proc_easy::easy_token!(combobox);
-proc_easy::easy_token!(frozen);
-proc_easy::easy_token!(rgb);
-proc_easy::easy_token!(rgba);
-proc_easy::easy_token!(rgba_premultiplied);
-proc_easy::easy_token!(rgba_unmultiplied);
-
-proc_easy::easy_parse! {
-    #[derive(Clone, Copy)]
-    struct KebabCase {
-        kebab: kebab,
-        minus: syn::Token![-],
-        case: case,
-    }
+macro_rules! validate {
+    (skip: !$attributes:expr => [ $($attribute:ident),+ ]) => {
+        (|| -> syn::Result<Option<proc_macro2::TokenStream>> {
+            if $attributes.skip.is_some() {
+                $(
+                    if let Some(attribute) = &$attributes.$attribute {
+                        return Err(syn::Error::new(
+                            attribute.name_span(),
+                            format!("Cannot use {} attribute for skipped field", attribute.name_display())
+                        ));
+                    }
+                )+
+            }
+            Ok(None)
+        })()
+    };
 }
 
-proc_easy::easy_parse! {
-    #[derive(Clone, Copy)]
-    struct TrainCase {
-        kebab: Train,
-        minus: syn::Token![-],
-        case: Case,
-    }
+// Tokens
+mod keywords {
+    proc_easy::easy_token!(bookmarks);
+    proc_easy::easy_token!(by);
+    proc_easy::easy_token!(combobox);
+    proc_easy::easy_token!(frozen);
+    proc_easy::easy_token!(inlined);
+    proc_easy::easy_token!(multiline);
+    proc_easy::easy_token!(name);
+    proc_easy::easy_token!(range);
+    proc_easy::easy_token!(rgb);
+    proc_easy::easy_token!(rgba_premultiplied);
+    proc_easy::easy_token!(rgba_unmultiplied);
+    proc_easy::easy_token!(rgba);
+    proc_easy::easy_token!(skip);
+    proc_easy::easy_token!(tags);
+    proc_easy::easy_token!(toggle_switch);
+    proc_easy::easy_token!(transparent);
+    proc_easy::easy_token!(with);
 }
 
-proc_easy::easy_parse! {
-    #[allow(unused)]
-    #[derive(Clone, Copy)]
-    enum RenameCase {
-        SnakeCase(snake_case),
-        CamelCase(camelCase),
-        PascalCase(PascalCase),
-        ScreamingSnakeCase(SCREAMING_SNAKE_CASE),
-        UpperSnakeCase(UPPER_SNAKE_CASE),
-        KebabCase(KebabCase),
-        TrainCase(TrainCase),
-    }
-}
-
-impl RenameCase {
-    fn rename(&self, ident: &syn::Ident) -> syn::LitStr {
-        let ident = ident.to_string();
-
-        let converted = match self {
-            RenameCase::SnakeCase(_) => ident.to_case(convert_case::Case::Snake),
-            RenameCase::CamelCase(_) => ident.to_case(convert_case::Case::Camel),
-            RenameCase::PascalCase(_) => ident.to_case(convert_case::Case::Pascal),
-            RenameCase::ScreamingSnakeCase(_) => ident.to_case(convert_case::Case::Constant),
-            RenameCase::UpperSnakeCase(_) => ident.to_case(convert_case::Case::UpperSnake),
-            RenameCase::KebabCase(_) => ident.to_case(convert_case::Case::Kebab),
-            RenameCase::TrainCase(_) => ident.to_case(convert_case::Case::Train),
-        };
-
-        syn::LitStr::new(&converted, ident.span())
-    }
-}
-
-proc_easy::easy_argument_value! {
-    struct RenameAll {
-        rename_all: rename_all,
-        case: RenameCase,
-    }
-}
+// Parse
 
 proc_easy::easy_argument! {
     struct With {
         with: with,
 
-        /// Expression type must implement `FnOnce(&mut FieldType, &mut egui::Ui, &::egui_probe::Style) -> egui::Response`
+        /// Expression type must implement `FnOnce(&mut FieldType, &mut
+        /// egui::Ui, &::egui_probe::Style) -> egui::Response`
         expr: syn::Expr,
     }
 }
 
 proc_easy::easy_argument! {
-    struct ProbeAs {
+    struct As {
         probe_as: syn::Token![as],
 
         /// Expression type must implement `FnOnce(&mut FieldType) -> R`
@@ -140,82 +103,18 @@ impl Parse for RangeArg {
     }
 }
 
-proc_easy::easy_argument_value! {
-    struct Range {
-        range: range,
-        /// `EguiProbeRange<FieldType, ExprType>` must implement `EguiProbeWrapper`.
-        arg: RangeArg,
-    }
-}
-
-proc_easy::easy_argument_value! {
-    struct Name {
-        name: name,
-        literal: syn::LitStr,
-    }
-}
-
 proc_easy::easy_argument_group! {
-    enum FieldProbeKind {
+    pub(super) enum FieldKind {
+        As(As),
         Range(Range),
         With(With),
-        ProbeAs(ProbeAs),
-        Multiline(multiline),
-        ToggleSwitch(toggle_switch),
         Frozen(frozen),
+        Multiline(multiline),
         Rgb(rgb),
         Rgba(rgba),
         RgbaPremultiplied(rgba_premultiplied),
         RgbaUnmultiplied(rgba_unmultiplied),
-    }
-}
-
-impl FieldProbeKind {
-    fn span(&self) -> proc_macro2::Span {
-        match self {
-            FieldProbeKind::With(with) => with.with.span(),
-            FieldProbeKind::ProbeAs(probe_as) => probe_as.probe_as.span(),
-            FieldProbeKind::Range(range) => range.range.span(),
-            FieldProbeKind::Multiline(multiline) => multiline.span(),
-            FieldProbeKind::ToggleSwitch(toggle_switch) => toggle_switch.span(),
-            FieldProbeKind::Frozen(frozen) => frozen.span(),
-            FieldProbeKind::Rgb(rgb) => rgb.span(),
-            FieldProbeKind::Rgba(rgba) => rgba.span(),
-            FieldProbeKind::RgbaPremultiplied(rgba_premultiplied) => rgba_premultiplied.span(),
-            FieldProbeKind::RgbaUnmultiplied(rgba_unmultiplied) => rgba_unmultiplied.span(),
-        }
-    }
-
-    const fn error_when_skipped(&self) -> &'static str {
-        macro_rules! format_error {
-            ($name:literal) => {
-                concat!("Cannot use `", $name, "` attribute for skipped field")
-            };
-        }
-
-        match self {
-            FieldProbeKind::With(_) => format_error!("with"),
-            FieldProbeKind::ProbeAs(_) => format_error!("as"),
-            FieldProbeKind::Range(_) => format_error!("range"),
-            FieldProbeKind::Multiline(_) => format_error!("multiline"),
-            FieldProbeKind::ToggleSwitch(_) => format_error!("toggle_switch"),
-            FieldProbeKind::Frozen(_) => format_error!("frozen"),
-            FieldProbeKind::Rgb(_) => format_error!("rgb"),
-            FieldProbeKind::Rgba(_) => format_error!("rgba"),
-            FieldProbeKind::RgbaPremultiplied(_) => format_error!("rgba_premultiplied"),
-            FieldProbeKind::RgbaUnmultiplied(_) => format_error!("rgba_unmultiplied"),
-        }
-    }
-}
-
-proc_easy::easy_attributes! {
-    @(egui_probe)
-    struct FieldAttributes {
-        // If `skip` is present, the field will be skipped.
-        // Error will be generated if other attributes are present together with `skip`.
-        skip: Option<skip>,
-        name: Option<Name>,
-        kind : Option<FieldProbeKind>,
+        ToggleSwitch(toggle_switch),
     }
 }
 
@@ -228,8 +127,8 @@ proc_easy::easy_argument! {
 
 proc_easy::easy_argument_group! {
     enum TagsKind {
-        Inlined(inlined),
         ComboBox(combobox),
+        Inlined(inlined),
     }
 }
 
@@ -240,13 +139,52 @@ proc_easy::easy_argument! {
     }
 }
 
+// Argument value
+
+proc_easy::easy_argument_value! {
+    struct Bookmarks {
+        bookmarks: bookmarks,
+        expr: syn::ExprArray,
+    }
+}
+
+proc_easy::easy_argument_value! {
+    struct Name {
+        name: name,
+        expr: syn::Expr,
+    }
+}
+
+proc_easy::easy_argument_value! {
+    struct Range {
+        range: range,
+        /// `EguiProbeRange<FieldType, ExprType>` must implement `EguiProbeWrapper`.
+        arg: RangeArg,
+    }
+}
+
+// Attributes
+
+proc_easy::easy_attributes! {
+    @(egui_probe)
+    struct FieldAttributes {
+        bookmarks: Option<Bookmarks>,
+        kind: Option<FieldKind>,
+        name: Option<Name>,
+        // If `skip` is present, the field will be skipped.
+        // Error will be generated if other attributes are present together with
+        // `skip`.
+        skip: Option<skip>,
+    }
+}
+
 proc_easy::easy_attributes! {
     @(egui_probe)
     struct TypeAttributes {
-        rename_all: Option<RenameAll>,
-        where_clause: Option<WhereClause>,
-        transparent: Option<transparent>,
+        name: Option<Name>,
         tags: Option<EnumTags>,
+        transparent: Option<transparent>,
+        where_clause: Option<WhereClause>,
     }
 }
 
@@ -258,83 +196,60 @@ proc_easy::easy_attributes! {
     }
 }
 
-fn make_name(
-    name: Option<Name>,
-    ident: Option<&syn::Ident>,
-    rename_case: Option<RenameCase>,
-) -> syn::LitStr {
+fn make_name(name: Option<Name>, ident: Option<&syn::Ident>) -> proc_macro2::TokenStream {
     match name {
-        Some(name) => name.literal,
-        None => match (ident, rename_case) {
-            (None, _) => LitStr::new("", proc_macro2::Span::call_site()),
-            (Some(ident), None) => LitStr::new(&ident.to_string(), ident.span()),
-            (Some(ident), Some(rename_case)) => rename_case.rename(ident),
+        Some(name) => {
+            let expr = name.expr;
+            quote::quote!(#expr)
+        }
+        None => match ident {
+            None => quote::quote!(""),
+            Some(ident) => {
+                let name = ident.to_string();
+                quote::quote!(#name)
+            }
         },
     }
 }
 
-fn field_name(field: &syn::Field, rename_case: Option<RenameCase>) -> syn::Result<Option<LitStr>> {
+// FieldAttributes
+fn field_name(field: &syn::Field) -> syn::Result<Option<proc_macro2::TokenStream>> {
     let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
 
-    if attributes.skip.is_some() {
-        if let Some(name) = attributes.name {
-            return Err(syn::Error::new_spanned(
-                name.name,
-                "Cannot name skipped field",
-            ));
-        }
+    validate!(skip: !attributes => [bookmarks, kind, name])?;
 
-        if let Some(kind) = attributes.kind {
-            return Err(syn::Error::new(kind.span(), kind.error_when_skipped()));
-        }
-
-        return Ok(None);
-    }
-
-    let name = make_name(attributes.name, field.ident.as_ref(), rename_case);
+    let name = make_name(attributes.name, field.ident.as_ref());
 
     Ok(Some(name))
 }
 
+// FieldAttributes
 fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2::TokenStream>> {
     let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
 
-    if attributes.skip.is_some() {
-        if let Some(name) = attributes.name {
-            return Err(syn::Error::new_spanned(
-                name.name,
-                "Cannot name skipped field",
-            ));
-        }
-
-        if let Some(kind) = attributes.kind {
-            return Err(syn::Error::new(kind.span(), kind.error_when_skipped()));
-        }
-
-        return Ok(None);
-    }
+    validate!(skip: !attributes => [bookmarks, kind, name])?;
 
     let binding = quote::format_ident!("___{}", idx);
 
-    let tokens = match attributes.kind {
+    let mut tokens = match attributes.kind {
         None => {
             quote::quote_spanned! {field.span() =>
                 #binding
             }
         }
-        Some(FieldProbeKind::With(with)) => {
+        Some(FieldKind::With(with)) => {
             let expr = with.expr;
             quote::quote_spanned! {field.span() =>
                 &mut probe_with(#expr, #binding)
             }
         }
-        Some(FieldProbeKind::ProbeAs(probe_as)) => {
+        Some(FieldKind::As(probe_as)) => {
             let expr = probe_as.expr;
             quote::quote_spanned! {field.span() =>
                 &mut probe_as(#expr, #binding)
             }
         }
-        Some(FieldProbeKind::Range(range)) => match (range.arg.range, range.arg.step) {
+        Some(FieldKind::Range(range)) => match (range.arg.range, range.arg.step) {
             (None, None) => {
                 unreachable!()
             }
@@ -356,56 +271,81 @@ fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2
                 }
             }
         },
-        Some(FieldProbeKind::Multiline(_)) => {
+        Some(FieldKind::Multiline(_)) => {
             quote::quote_spanned! {field.span() =>
                 &mut probe_multiline(#binding)
             }
         }
-        Some(FieldProbeKind::ToggleSwitch(_)) => {
+        Some(FieldKind::ToggleSwitch(_)) => {
             quote::quote_spanned! {field.span() =>
                 &mut probe_toggle_switch(#binding)
             }
         }
-        Some(FieldProbeKind::Frozen(_)) => {
+        Some(FieldKind::Frozen(_)) => {
             quote::quote_spanned! {field.span() =>
                 &mut probe_frozen(#binding)
             }
         }
-        Some(FieldProbeKind::Rgb(_)) => {
+        Some(FieldKind::Rgb(_)) => {
             quote::quote_spanned! {field.span() =>
                 &mut probe_rgb(#binding)
             }
         }
-        Some(FieldProbeKind::Rgba(_)) => {
+        Some(FieldKind::Rgba(_)) => {
             quote::quote_spanned! {field.span() =>
                 &mut probe_rgba(#binding)
             }
         }
-        Some(FieldProbeKind::RgbaPremultiplied(_)) => {
+        Some(FieldKind::RgbaPremultiplied(_)) => {
             quote::quote_spanned! {field.span() =>
                 &mut probe_rgba_premultiplied(#binding)
             }
         }
-        Some(FieldProbeKind::RgbaUnmultiplied(_)) => {
+        Some(FieldKind::RgbaUnmultiplied(_)) => {
             quote::quote_spanned! {field.span() =>
                 &mut probe_rgba_unmultiplied(#binding)
             }
         }
     };
 
+    if let Some(bookmarks) = attributes.bookmarks {
+        let buttons = bookmarks.expr.elems.iter().map(|expr| {
+            let text = quote::quote!(#expr).to_string();
+            quote::quote! {
+                if ui.selectable_value(#binding, #expr, #text).clicked() {
+                    changed = true;
+                    ui.close_menu();
+                }
+            }
+        });
+        tokens = quote::quote_spanned! {field.span() =>
+            &mut probe_with(|#binding, ui, style| {
+                ui.horizontal(|ui| {
+                    let mut response = ::egui_probe::EguiProbe::probe(#tokens, ui, style);
+                    let mut changed = false;
+                    ui.menu_button(::egui_phosphor::regular::BOOKMARK, |ui| {
+                        #(#buttons)*
+                    });
+                    if changed {
+                        response.mark_changed();
+                    }
+                    response
+                }).inner
+            }, #binding)
+        };
+    }
+
     Ok(Some(tokens))
 }
 
-fn variant_selected(
-    variant: &syn::Variant,
-    rename_case: Option<RenameCase>,
-) -> syn::Result<proc_macro2::TokenStream> {
+// VariantAttributes
+fn variant_selected(variant: &syn::Variant) -> syn::Result<proc_macro2::TokenStream> {
     let attributes: VariantAttributes =
         proc_easy::EasyAttributes::parse(&variant.attrs, variant.span())?;
 
     let ident: &proc_macro2::Ident = &variant.ident;
 
-    let name = make_name(attributes.name, Some(ident), rename_case);
+    let name = make_name(attributes.name, Some(ident));
 
     let pattern = match variant.fields {
         syn::Fields::Unit => quote::quote!(Self::#ident),
@@ -420,10 +360,8 @@ fn variant_selected(
     Ok(tokens)
 }
 
-fn variant_probe(
-    variant: &syn::Variant,
-    rename_case: Option<RenameCase>,
-) -> syn::Result<proc_macro2::TokenStream> {
+// VariantAttributes
+fn variant_probe(variant: &syn::Variant) -> syn::Result<proc_macro2::TokenStream> {
     let attributes: VariantAttributes =
         proc_easy::EasyAttributes::parse(&variant.attrs, variant.span())?;
 
@@ -448,7 +386,7 @@ fn variant_probe(
         }
     };
 
-    let name = make_name(attributes.name, Some(ident), rename_case);
+    let name = make_name(attributes.name, Some(ident));
 
     let pattern = match variant.fields {
         syn::Fields::Unit => quote::quote!(Self::#ident),
@@ -475,6 +413,7 @@ fn variant_probe(
     Ok(tokens)
 }
 
+// VariantAttributes
 fn variant_inline_probe(variant: &syn::Variant) -> syn::Result<proc_macro2::TokenStream> {
     let attributes: VariantAttributes =
         proc_easy::EasyAttributes::parse(&variant.attrs, variant.span())?;
@@ -536,10 +475,8 @@ fn variant_inline_probe(variant: &syn::Variant) -> syn::Result<proc_macro2::Toke
     }
 }
 
-fn variant_iterate_inner(
-    variant: &syn::Variant,
-    rename_case: Option<RenameCase>,
-) -> syn::Result<proc_macro2::TokenStream> {
+// VariantAttributes
+fn variant_iterate_inner(variant: &syn::Variant) -> syn::Result<proc_macro2::TokenStream> {
     let attributes: VariantAttributes =
         proc_easy::EasyAttributes::parse(&variant.attrs, variant.span())?;
 
@@ -591,7 +528,7 @@ fn variant_iterate_inner(
         let fields_name: Vec<_> = variant
             .fields
             .iter()
-            .filter_map(|field| field_name(field, rename_case).transpose())
+            .filter_map(|field| field_name(field).transpose())
             .collect::<syn::Result<_>>()?;
 
         let fields_probe: Vec<_> = variant
@@ -605,7 +542,7 @@ fn variant_iterate_inner(
 
         let tokens = quote::quote_spanned! {variant.ident.span() =>
             #pattern => {
-                #(_f(#fields_name, _ui, #fields_probe);)*
+                #(_f(::core::convert::AsRef::<str>::as_ref(&(#fields_name)), _ui, #fields_probe);)*
             },
         };
 
@@ -619,7 +556,8 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
     let generics = &input.generics;
 
     let attributes: TypeAttributes = proc_easy::EasyAttributes::parse(&input.attrs, ident.span())?;
-    let rename_case = attributes.rename_all.map(|rename_all| rename_all.case);
+
+    let type_name = make_name(attributes.name, Some(ident));
 
     let (impl_generics, ty_generics, mut where_clause) = generics.split_for_impl();
 
@@ -707,15 +645,15 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
                 let fields_name: Vec<_> = data
                     .fields
                     .iter()
-                    .filter_map(|field| field_name(field, rename_case).transpose())
+                    .filter_map(|field| field_name(field).transpose())
                     .collect::<syn::Result<_>>()?;
 
                 let tokens = quote::quote! {
                     impl #impl_generics ::egui_probe::EguiProbe for #ident #ty_generics
                     #where_clause
                     {
-                        fn probe(&mut self, ui: &mut ::egui_probe::egui::Ui, _style: &::egui_probe::Style) -> ::egui_probe::egui::Response {
-                            ui.weak(::egui_probe::private::stringify!(#ident))
+                        fn probe(&mut self, _ui: &mut ::egui_probe::egui::Ui, _style: &::egui_probe::Style) -> ::egui_probe::egui::Response {
+                            _ui.weak(#type_name)
                         }
 
                         fn iterate_inner(&mut self, _ui: &mut ::egui_probe::egui::Ui, _f: &mut dyn FnMut(&str, &mut ::egui_probe::egui::Ui, &mut dyn ::egui_probe::EguiProbe)) {
@@ -724,7 +662,7 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
                             let #pattern = self;
 
                             #(
-                                _f(#fields_name, _ui, #all_fields_probe);
+                                _f(::core::convert::AsRef::<str>::as_ref(&(#fields_name)), _ui, #all_fields_probe);
                             )*
                         }
                     }
@@ -744,13 +682,13 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
             let variants_selected = data
                 .variants
                 .iter()
-                .map(|variant| variant_selected(variant, rename_case))
+                .map(|variant| variant_selected(variant))
                 .collect::<syn::Result<Vec<_>>>()?;
 
             let variants_probe = data
                 .variants
                 .iter()
-                .map(|variant| variant_probe(variant, rename_case))
+                .map(|variant| variant_probe(variant))
                 .collect::<syn::Result<Vec<_>>>()?;
 
             let variants_inline_probe = data
@@ -762,7 +700,7 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
             let variants_iterate_inner = data
                 .variants
                 .iter()
-                .map(|variant| variant_iterate_inner(variant, rename_case))
+                .map(|variant| variant_iterate_inner(variant))
                 .collect::<syn::Result<Vec<_>>>()?;
 
             let variants_style = match attributes.tags {

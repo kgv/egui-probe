@@ -36,12 +36,7 @@ pub fn option_probe_with<T>(
         .horizontal(|ui| {
             let mut checked = value.is_some();
 
-            if ui.selectable_label(!checked, "None").clicked() {
-                checked = false;
-            }
-            if ui.selectable_label(checked, "Some").clicked() {
-                checked = true;
-            }
+            ui.checkbox(&mut checked, ());
 
             match (checked, value.is_some()) {
                 (true, false) => {

@@ -1,8 +1,11 @@
 use crate::{
     EguiProbe,
-    collections::{DeleteMe, EguiProbeFrozen},
+    collections::{DeleteMe, EguiProbeDragAndDrop, EguiProbeFrozen},
     option::option_probe_with,
 };
+use egui_dnd::dnd;
+use egui_phosphor::regular::DOTS_SIX_VERTICAL;
+use std::hash::Hash;
 
 impl<T> EguiProbe for Vec<T>
 where
@@ -76,5 +79,29 @@ where
                 f(&format!("[{i}]"), ui, value);
             }
         }
+    }
+}
+
+impl<T> EguiProbe for EguiProbeDragAndDrop<'_, Vec<T>>
+where
+    T: EguiProbe + Hash,
+{
+    fn probe(&mut self, ui: &mut egui::Ui, _style: &crate::Style) -> egui::Response {
+        ui.weak(format!("[{}]", self.value.len()))
+    }
+
+    fn iterate_inner(
+        &mut self,
+        ui: &mut egui::Ui,
+        f: &mut dyn FnMut(&str, &mut egui::Ui, &mut dyn EguiProbe),
+    ) {
+        dnd(ui, ui.next_auto_id()).show_vec(&mut self.value, |ui, item, handle, state| {
+            ui.horizontal(|ui| {
+                handle.ui(ui, |ui| {
+                    ui.label(DOTS_SIX_VERTICAL);
+                });
+                f(&format!("[{}]", state.index), ui, item);
+            });
+        });
     }
 }

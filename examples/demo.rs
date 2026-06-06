@@ -52,21 +52,11 @@ impl Default for ComboBoxTags {
 }
 
 #[derive(Default, EguiProbe)]
-#[egui_probe(rename_all = Train-Case)]
 struct InnerValue {
     line: String,
 
     #[egui_probe(multiline)]
     multi_line: String,
-
-    #[cfg(feature = "smallvec1")]
-    small_vec_1: smallvec1::SmallVec<[String; 4]>,
-
-    #[cfg(feature = "smallvec2")]
-    small_vec_2: smallvec2::SmallVec<f32, 4>,
-
-    #[cfg(feature = "hashbrown")]
-    hash_brown: hashbrown::HashMap<u8, f32>,
 }
 
 #[derive(EguiProbe)]
@@ -76,6 +66,7 @@ struct DemoValue {
     #[egui_probe(toggle_switch)]
     boolean_toggle: bool,
 
+    #[egui_probe(range = 0.0..=1.0 by 0.01, bookmarks = [0.5])]
     float: f32,
 
     #[egui_probe(range = 22..=55)]
@@ -86,12 +77,16 @@ struct DemoValue {
     #[egui_probe(range = 50..)]
     range_from: u8,
 
+    #[egui_probe(range = 1..=9, bookmarks = [2, 3, 4])]
+    range_with_bookmark: u8,
+
     #[egui_probe(as angle)]
     angle: f32,
 
     #[egui_probe(with custom_probe)]
     custom: Foo,
 
+    // #[egui_probe(skip, name = "renamed ^_^")]
     #[egui_probe(name = "renamed ^_^")]
     renamed: u8,
 
@@ -123,7 +118,10 @@ struct EguiProbeDemoApp {
 }
 
 impl EguiProbeDemoApp {
-    fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        let mut fonts = egui::FontDefinitions::default();
+        egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
+        cc.egui_ctx.set_fonts(fonts);
         EguiProbeDemoApp {
             value: DemoValue {
                 boolean: false,
@@ -132,6 +130,7 @@ impl EguiProbeDemoApp {
                 range: 22,
                 range_to: UpTo7(0),
                 range_from: 100,
+                range_with_bookmark: 2,
                 angle: 0.0,
                 custom: Foo,
                 renamed: 0,
@@ -140,12 +139,6 @@ impl EguiProbeDemoApp {
                 inner: InnerValue {
                     line: "Hello, world!".to_owned(),
                     multi_line: "Hello,\nworld!".to_owned(),
-                    #[cfg(feature = "smallvec1")]
-                    small_vec_1: smallvec1::smallvec!["First 4 values is on stack".to_owned()],
-                    #[cfg(feature = "smallvec2")]
-                    small_vec_2: smallvec2::smallvec![42.],
-                    #[cfg(feature = "hashbrown")]
-                    hash_brown: Default::default(),
                 },
                 inlined_tags: InlinedTags::Empty,
                 option_combobox_tags: None,
@@ -172,12 +165,12 @@ impl EguiProbeDemoApp {
 }
 
 impl eframe::App for EguiProbeDemoApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::TopBottomPanel::top("header").show(ctx, |ui| {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        egui::Panel::top("Header").show_inside(ui, |ui| {
             egui::widgets::global_theme_preference_switch(ui);
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 Probe::new(&mut self.value).show(ui);
             });

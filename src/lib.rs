@@ -100,14 +100,10 @@ mod array;
 mod boolean;
 mod collections;
 mod color;
-#[cfg(feature = "hashbrown")]
-mod hashbrown;
 mod map;
 mod num;
 mod option;
 mod set;
-#[cfg(any(feature = "smallvec1", feature = "smallvec2"))]
-mod small_vec;
 mod text;
 mod ui;
 mod vec;
@@ -117,7 +113,7 @@ pub use egui;
 
 pub use self::{
     boolean::toggle_switch,
-    collections::DeleteMe,
+    collections::{DeleteMe, EguiProbeDragAndDrop},
     option::option_probe_with,
     widget::{Probe, ProbeLayout},
 };

@@ -171,12 +171,6 @@ macro_rules! impl_for_num_types {
             }
         }
 
-
-
-
-
-
-
         impl<S> EguiProbe for EguiProbeRange<'_, $num_type, RangeFull, S> where S: Copy + Into<f64> {
             #[inline(always)]
             fn probe(&mut self, ui: &mut egui::Ui, _: &Style) -> egui::Response {
