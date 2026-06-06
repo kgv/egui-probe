@@ -729,8 +729,8 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
                     impl #impl_generics ::egui_probe::EguiProbe for #ident #ty_generics
                     #where_clause
                     {
-                        fn probe(&mut self, ui: &mut ::egui_probe::egui::Ui, _style: &::egui_probe::Style) -> ::egui_probe::egui::Response {
-                            ui.weak(#type_name)
+                        fn probe(&mut self, _ui: &mut ::egui_probe::egui::Ui, _style: &::egui_probe::Style) -> ::egui_probe::egui::Response {
+                            _ui.weak(#type_name)
                         }
 
                         fn iterate_inner(&mut self, _ui: &mut ::egui_probe::egui::Ui, _f: &mut dyn FnMut(&str, &mut ::egui_probe::egui::Ui, &mut dyn ::egui_probe::EguiProbe)) {
