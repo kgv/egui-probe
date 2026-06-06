@@ -243,11 +243,12 @@ proc_easy::easy_argument! {
 proc_easy::easy_attributes! {
     @(egui_probe)
     struct TypeAttributes {
-        name: Option<Name>,
         rename_all: Option<RenameAll>,
         where_clause: Option<WhereClause>,
         transparent: Option<transparent>,
         tags: Option<EnumTags>,
+        // ДОБАВЛЕНО: Поддержка атрибута name для структуры/перечисления
+        name: Option<Name>,
     }
 }
 
@@ -634,6 +635,7 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
     let attributes: TypeAttributes = proc_easy::EasyAttributes::parse(&input.attrs, ident.span())?;
     let rename_case = attributes.rename_all.map(|rename_all| rename_all.case);
 
+    // ДОБАВЛЕНО: Генерируем имя структуры (либо из атрибута name, либо берем ident)
     let type_name = make_name(attributes.name, Some(ident), None);
 
     let (impl_generics, ty_generics, mut where_clause) = generics.split_for_impl();
@@ -729,8 +731,9 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
                     impl #impl_generics ::egui_probe::EguiProbe for #ident #ty_generics
                     #where_clause
                     {
-                        fn probe(&mut self, ui: &mut ::egui_probe::egui::Ui, _style: &::egui_probe::Style) -> ::egui_probe::egui::Response {
-                            ui.weak(#type_name)
+                        fn probe(&mut self, _ui: &mut ::egui_probe::egui::Ui, _style: &::egui_probe::Style) -> ::egui_probe::egui::Response {
+                            // ДОБАВЛЕНО: Используем type_name вместо stringify!(#ident)
+                            _ui.weak(#type_name)
                         }
 
                         fn iterate_inner(&mut self, _ui: &mut ::egui_probe::egui::Ui, _f: &mut dyn FnMut(&str, &mut ::egui_probe::egui::Ui, &mut dyn ::egui_probe::EguiProbe)) {
@@ -796,10 +799,10 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
                 impl #impl_generics ::egui_probe::EguiProbe for #ident #ty_generics
                     #where_clause
                     {
-                        fn probe(&mut self, ui: &mut ::egui_probe::egui::Ui, _style: &::egui_probe::Style) -> ::egui_probe::egui::Response {
+                        fn probe(&mut self, _ui: &mut ::egui_probe::egui::Ui, _style: &::egui_probe::Style) -> ::egui_probe::egui::Response {
                             use ::egui_probe::private::*;
 
-                            ui.horizontal(|_ui| {
+                            _ui.horizontal(|_ui| {
                                 match #variants_style {
                                     ::egui_probe::VariantsStyle::Inlined => {
                                         let _in_cbox = false;
@@ -825,7 +828,7 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
                             }).response
                         }
 
-                        fn iterate_inner(&mut self, _ui: &mut egui_probe::egui::Ui, _f: &mut dyn FnMut(&str, &mut egui_probe::egui::Ui, &mut dyn ::egui_probe::EguiProbe)) {
+                        fn iterate_inner(&mut self, _ui: &mut ::egui_probe::egui::Ui, _f: &mut dyn FnMut(&str, &mut ::egui_probe::egui::Ui, &mut dyn ::egui_probe::EguiProbe)) {
                             use ::egui_probe::private::*;
 
                             match self {#(
