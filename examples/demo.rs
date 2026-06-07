@@ -86,6 +86,10 @@ struct DemoValue {
     #[egui_probe(range = 50..)]
     range_from: u8,
 
+    // #[egui_probe(range = 1..9, bookmark = 3)]
+    #[egui_probe(range = 1..=9, bookmark = 3)]
+    range_with_bookmark: u8,
+
     #[egui_probe(as angle)]
     angle: f32,
 
@@ -132,6 +136,7 @@ impl EguiProbeDemoApp {
                 range: 22,
                 range_to: UpTo7(0),
                 range_from: 100,
+                range_with_bookmark: 2,
                 angle: 0.0,
                 custom: Foo,
                 renamed: 0,
@@ -173,11 +178,11 @@ impl EguiProbeDemoApp {
 
 impl eframe::App for EguiProbeDemoApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        egui::TopBottomPanel::top("header").show(ctx, |ui| {
+        egui::Panel::top("Header").show_inside(ui, |ui| {
             egui::widgets::global_theme_preference_switch(ui);
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 Probe::new(&mut self.value).show(ui);
             });

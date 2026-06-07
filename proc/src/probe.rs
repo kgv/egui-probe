@@ -427,12 +427,12 @@ fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2
         tokens = quote::quote_spanned! {field.span() =>
             &mut probe_with(|#binding, ui, style| {
                 ui.horizontal(|ui| {
-                    let mut res = ::egui_probe::EguiProbe::probe(#tokens, ui, style);
-                    if ui.button("🔖").clicked() {
+                    let mut response = ::egui_probe::EguiProbe::probe(#tokens, ui, style);
+                    if ui.button(::egui_phosphor::regular::BOOKMARK).clicked() {
                         *#binding = #bookmark_expr;
-                        res.mark_changed();
+                        response.mark_changed();
                     }
-                    res
+                    response
                 }).inner
             }, #binding)
         };
