@@ -3,7 +3,7 @@
 use convert_case::Casing;
 use syn::{parse::Parse, spanned::Spanned};
 
-proc_easy::easy_token!(bookmark);
+proc_easy::easy_token!(bookmarks);
 proc_easy::easy_token!(skip);
 proc_easy::easy_token!(with);
 proc_easy::easy_token!(range);
@@ -32,9 +32,9 @@ proc_easy::easy_token!(rgba_premultiplied);
 proc_easy::easy_token!(rgba_unmultiplied);
 
 proc_easy::easy_argument_value! {
-    struct Bookmark {
-        bookmark: bookmark,
-        expr: syn::Expr,
+    struct Bookmarks {
+        bookmarks: bookmarks,
+        expr: syn::ExprArray,
     }
 }
 
@@ -223,7 +223,7 @@ proc_easy::easy_attributes! {
         // Error will be generated if other attributes are present together with `skip`.
         skip: Option<skip>,
         name: Option<Name>,
-        bookmark: Option<Bookmark>,
+        bookmarks: Option<Bookmarks>,
         kind: Option<FieldProbeKind>,
     }
 }
@@ -306,10 +306,10 @@ fn field_name(
             ));
         }
 
-        if let Some(bookmark) = attributes.bookmark {
+        if let Some(bookmarks) = attributes.bookmarks {
             return Err(syn::Error::new_spanned(
-                bookmark.bookmark,
-                "Cannot bookmark skipped field",
+                bookmarks.bookmarks,
+                "Cannot bookmarks skipped field",
             ));
         }
 
@@ -422,14 +422,26 @@ fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2
         }
     };
 
-    if let Some(bookmark) = attributes.bookmark {
-        let bookmark_expr = bookmark.expr;
+    if let Some(bookmarks) = attributes.bookmarks {
+        let buttons = bookmarks.expr.elems.iter().map(|expr| {
+            let label = quote::quote!(#expr).to_string();
+            quote::quote! {
+                if ui.button(#label).clicked() {
+                    *#binding = #expr;
+                    changed = true;
+                    ui.close_menu();
+                }
+            }
+        });
         tokens = quote::quote_spanned! {field.span() =>
             &mut probe_with(|#binding, ui, style| {
                 ui.horizontal(|ui| {
                     let mut response = ::egui_probe::EguiProbe::probe(#tokens, ui, style);
-                    if ui.button(::egui_phosphor::regular::BOOKMARK).clicked() {
-                        *#binding = #bookmark_expr;
+                    let mut changed = false;
+                    ui.menu_button(::egui_phosphor::regular::BOOKMARK, |ui| {
+                        #(#buttons)*
+                    });
+                    if changed {
                         response.mark_changed();
                     }
                     response

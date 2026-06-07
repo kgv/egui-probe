@@ -87,7 +87,7 @@ struct DemoValue {
     range_from: u8,
 
     // #[egui_probe(range = 1..9, bookmark = 3)]
-    #[egui_probe(range = 1..=9, bookmark = 3)]
+    #[egui_probe(range = 1..=9, bookmark = [2, 3, 4])]
     range_with_bookmark: u8,
 
     #[egui_probe(as angle)]
