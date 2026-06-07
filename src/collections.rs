@@ -41,3 +41,8 @@ where
 pub struct EguiProbeFrozen<'a, T> {
     pub value: &'a mut T,
 }
+
+/// Modifier to disable adding/removing items from collections.
+pub struct EguiProbeDragAndDrop<'a, T> {
+    pub value: &'a mut T,
+}
