@@ -3,6 +3,7 @@
 use convert_case::Casing;
 use syn::{parse::Parse, spanned::Spanned};
 
+proc_easy::easy_token!(bookmark);
 proc_easy::easy_token!(skip);
 proc_easy::easy_token!(with);
 proc_easy::easy_token!(range);
@@ -29,6 +30,13 @@ proc_easy::easy_token!(rgb);
 proc_easy::easy_token!(rgba);
 proc_easy::easy_token!(rgba_premultiplied);
 proc_easy::easy_token!(rgba_unmultiplied);
+
+proc_easy::easy_argument_value! {
+    struct Bookmark {
+        bookmark: bookmark,
+        expr: syn::Expr,
+    }
+}
 
 proc_easy::easy_parse! {
     #[derive(Clone, Copy)]
@@ -215,7 +223,8 @@ proc_easy::easy_attributes! {
         // Error will be generated if other attributes are present together with `skip`.
         skip: Option<skip>,
         name: Option<Name>,
-        kind : Option<FieldProbeKind>,
+        bookmark: Option<Bookmark>,
+        kind: Option<FieldProbeKind>,
     }
 }
 
@@ -297,6 +306,13 @@ fn field_name(
             ));
         }
 
+        if let Some(bookmark) = attributes.bookmark {
+            return Err(syn::Error::new_spanned(
+                bookmark.bookmark,
+                "Cannot bookmark skipped field",
+            ));
+        }
+
         if let Some(kind) = attributes.kind {
             return Err(syn::Error::new(kind.span(), kind.error_when_skipped()));
         }
@@ -329,7 +345,7 @@ fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2
 
     let binding = quote::format_ident!("___{}", idx);
 
-    let tokens = match attributes.kind {
+    let mut tokens = match attributes.kind {
         None => {
             quote::quote_spanned! {field.span() =>
                 #binding
@@ -405,6 +421,22 @@ fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2
             }
         }
     };
+
+    if let Some(bookmark) = attributes.bookmark {
+        let bookmark_expr = bookmark.expr;
+        tokens = quote::quote_spanned! {field.span() =>
+            &mut probe_with(|#binding, ui, style| {
+                ui.horizontal(|ui| {
+                    let mut res = ::egui_probe::EguiProbe::probe(#tokens, ui, style);
+                    if ui.button("🔖").clicked() {
+                        *#binding = #bookmark_expr;
+                        res.mark_changed();
+                    }
+                    res
+                }).inner
+            }, #binding)
+        };
+    }
 
     Ok(Some(tokens))
 }
