@@ -117,7 +117,7 @@ pub use egui;
 
 pub use self::{
     boolean::toggle_switch,
-    collections::DeleteMe,
+    collections::{DeleteMe, EguiProbeDragAndDrop},
     option::option_probe_with,
     widget::{Probe, ProbeLayout},
 };
