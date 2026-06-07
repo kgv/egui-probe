@@ -424,10 +424,9 @@ fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2
 
     if let Some(bookmarks) = attributes.bookmarks {
         let buttons = bookmarks.expr.elems.iter().map(|expr| {
-            let label = quote::quote!(#expr).to_string();
+            let text = quote::quote!(#expr).to_string();
             quote::quote! {
-                if ui.button(#label).clicked() {
-                    *#binding = #expr;
+                if ui.selectable_value(#binding, #expr, #text).clicked() {
                     changed = true;
                     ui.close_menu();
                 }

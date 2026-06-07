@@ -86,8 +86,7 @@ struct DemoValue {
     #[egui_probe(range = 50..)]
     range_from: u8,
 
-    // #[egui_probe(range = 1..9, bookmark = 3)]
-    #[egui_probe(range = 1..=9, bookmark = [2, 3, 4])]
+    #[egui_probe(range = 1..=9, bookmarks = [2, 3, 4])]
     range_with_bookmark: u8,
 
     #[egui_probe(as angle)]
@@ -127,7 +126,10 @@ struct EguiProbeDemoApp {
 }
 
 impl EguiProbeDemoApp {
-    fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        let mut fonts = egui::FontDefinitions::default();
+        egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
+        cc.egui_ctx.set_fonts(fonts);
         EguiProbeDemoApp {
             value: DemoValue {
                 boolean: false,
