@@ -28,8 +28,9 @@ struct UpTo7(#[egui_probe(range = ..=7)] u32);
 enum InlinedTags {
     Empty,
 
+    // #[egui_probe(default = 999.0)]
     #[egui_probe(transparent)]
-    InlinedFloat(#[egui_probe(default = 999.0)] f32),
+    InlinedFloat(f32),
 
     Text {
         #[egui_probe(default = String::from("FROM"), multiline)]
@@ -37,21 +38,16 @@ enum InlinedTags {
     },
 }
 
-#[derive(EguiProbe)]
+#[derive(Default, EguiProbe)]
 #[egui_probe(tags combobox)]
 enum ComboBoxTags {
+    #[default]
     Empty,
-    #[egui_probe(default = ComboBoxTags::Num { value: 2 })]
     Num {
+        #[egui_probe(default = 2, range = 2..=9)]
         value: usize,
     },
 }
-
-// impl Default for ComboBoxTags {
-//     fn default() -> Self {
-//         ComboBoxTags::Empty
-//     }
-// }
 
 #[derive(EguiProbe)]
 struct InnerValue {
@@ -98,7 +94,7 @@ struct DemoValue {
 
     inner: InnerValue,
 
-    #[egui_probe(default = InlinedTags::Empty)]
+    // #[egui_probe(default = InlinedTags::Empty)]
     inlined_tags: InlinedTags,
 
     #[egui_probe(default = Some(ComboBoxTags::Num { value: 9 }))]
@@ -127,44 +123,44 @@ impl EguiProbeDemoApp {
         egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
         cc.egui_ctx.set_fonts(fonts);
         EguiProbeDemoApp {
-            value: DemoValue::default(),
-            // value: DemoValue {
-            //     boolean: false,
-            //     boolean_toggle: false,
-            //     float: 0.0,
-            //     range: 22,
-            //     range_to: UpTo7(0),
-            //     range_from: 100,
-            //     range_with_bookmark: 2,
-            //     angle: 0.0,
-            //     custom: Foo,
-            //     renamed: 0,
-            //     maybe_boolean: None,
-            //     character: 'a',
-            //     inner: InnerValue {
-            //         line: "Hello, world!".to_owned(),
-            //         multi_line: "Hello,\nworld!".to_owned(),
-            //     },
-            //     inlined_tags: InlinedTags::Empty,
-            //     option_combobox_tags: None,
-            //     array: [0, 1, 2],
-            //     vector: vec![false, true, false],
-            //     frozen_vector: vec![false, true, false],
+            // value: DemoValue::default(),
+            value: DemoValue {
+                boolean: false,
+                boolean_toggle: false,
+                float: 0.0,
+                range: 22,
+                range_to: UpTo7(0),
+                range_from: 100,
+                range_with_bookmark: 2,
+                angle: 0.0,
+                custom: Foo,
+                renamed: 0,
+                maybe_boolean: None,
+                character: 'a',
+                inner: InnerValue {
+                    line: "Hello, world!".to_owned(),
+                    multi_line: "Hello,\nworld!".to_owned(),
+                },
+                inlined_tags: InlinedTags::Empty,
+                option_combobox_tags: None,
+                array: [0, 1, 2],
+                vector: vec![false, true, false],
+                frozen_vector: vec![false, true, false],
 
-            //     map: {
-            //         let mut map = HashMap::new();
-            //         map.insert("foo".to_owned(), 1);
-            //         map.insert("bar".to_owned(), 2);
-            //         map
-            //     },
+                map: {
+                    let mut map = HashMap::new();
+                    map.insert("foo".to_owned(), 1);
+                    map.insert("bar".to_owned(), 2);
+                    map
+                },
 
-            //     frozen_map: {
-            //         let mut map = HashMap::new();
-            //         map.insert("foo".to_owned(), 1);
-            //         map.insert("bar".to_owned(), 2);
-            //         map
-            //     },
-            // },
+                frozen_map: {
+                    let mut map = HashMap::new();
+                    map.insert("foo".to_owned(), 1);
+                    map.insert("bar".to_owned(), 2);
+                    map
+                },
+            },
         }
     }
 }
