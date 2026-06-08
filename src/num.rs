@@ -1,8 +1,6 @@
-use core::ops::{RangeFrom, RangeFull, RangeInclusive, RangeToInclusive};
-
-use egui::emath::Numeric;
-
 use crate::{EguiProbe, Style, option::option_probe_with};
+use core::ops::{RangeFrom, RangeFull, RangeInclusive, RangeToInclusive};
+use egui::emath::Numeric;
 
 /// Marker type to indicate that the step for range is not set.
 pub struct StepUnset;

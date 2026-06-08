@@ -110,6 +110,7 @@ mod vec;
 mod widget;
 
 pub use egui;
+use egui_phosphor::regular::{MINUS, PLUS};
 
 pub use self::{
     boolean::toggle_switch,
@@ -150,8 +151,8 @@ pub struct Style {
     pub boolean: BooleanStyle,
     pub variants: VariantsStyle,
     pub field_indent_size: Option<f32>,
-    pub add_button_char: Option<char>,
-    pub remove_button_char: Option<char>,
+    pub add_button_text: Option<&'static str>,
+    pub remove_button_text: Option<&'static str>,
 }
 
 impl Default for Style {
@@ -161,8 +162,8 @@ impl Default for Style {
             boolean: BooleanStyle::default(),
             variants: VariantsStyle::default(),
             field_indent_size: None,
-            add_button_char: None,
-            remove_button_char: None,
+            add_button_text: None,
+            remove_button_text: None,
         }
     }
 }
@@ -170,12 +171,12 @@ impl Default for Style {
 impl Style {
     #[must_use]
     pub fn add_button_text(&self) -> String {
-        self.add_button_char.unwrap_or('+').to_string()
+        self.add_button_text.unwrap_or(PLUS).to_string()
     }
 
     #[must_use]
     pub fn remove_button_text(&self) -> String {
-        self.remove_button_char.unwrap_or('-').to_string()
+        self.remove_button_text.unwrap_or(MINUS).to_string()
     }
 }
 
