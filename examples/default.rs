@@ -41,17 +41,16 @@ enum ComboBoxTags {
 
 #[derive(Default, EguiProbe)]
 struct DemoValue {
-    #[egui_probe(default = true)]
+    // #[egui_probe(default = true)]
     boolean: bool,
 
-    #[egui_probe(default = 1.0)]
+    // #[egui_probe(default = 1.0)]
     float32: f32,
 
-    #[egui_probe(default = 1)]
+    // #[egui_probe(default = 1)]
     u8: u8,
 
     // #[egui_probe(default = false)]
-    #[egui_probe(default = false)]
     maybe_boolean1: Option<bool>,
     #[egui_probe(default = true)]
     maybe_boolean2: Option<bool>,

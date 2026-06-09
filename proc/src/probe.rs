@@ -140,29 +140,29 @@ proc_easy::easy_argument! {
     }
 }
 
-proc_easy::easy_argument! {
-    struct Default {
-        default: default,
-        expr: DefaultExpr,
-    }
-}
+// /// Default expr
+// struct DefaultExpr(Option<syn::Expr>);
 
-/// Default expr
-struct DefaultExpr(Option<syn::Expr>);
-
-impl Parse for DefaultExpr {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let expr = if input.peek(syn::Token![=]) {
-            let _eq: syn::Token![=] = input.parse()?;
-            Some(input.parse()?)
-        } else {
-            None
-        };
-        Ok(Self(expr))
-    }
-}
+// impl Parse for DefaultExpr {
+//     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+//         let expr = if input.peek(syn::Token![=]) {
+//             let _eq: syn::Token![=] = input.parse()?;
+//             Some(input.parse()?)
+//         } else {
+//             None
+//         };
+//         Ok(Self(expr))
+//     }
+// }
 
 // Argument value
+
+proc_easy::easy_argument_value! {
+    struct Default {
+        default: default,
+        expr: syn::Expr,
+    }
+}
 
 proc_easy::easy_argument_value! {
     struct Bookmarks {
@@ -585,21 +585,23 @@ fn variant_iterate_inner(variant: &syn::Variant) -> syn::Result<proc_macro2::Tok
 
 // Default
 
+// None => quote::quote!(::egui_probe::ProbeDefault::probe_default()),
+// Some(expr) if is_option => quote::quote!(::core::option::Option::Some(#expr)),
+// Some(expr) => quote::quote!(#expr),
 fn default_unnamed_field(field: &syn::Field) -> syn::Result<proc_macro2::TokenStream> {
     let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
 
     let is_option = is_option(&field.ty);
 
     let expr = match attributes.default {
-        Some(default) => match default.expr.0 {
-            None => quote::quote!(::egui_probe::ProbeDefault::probe_default()),
-            Some(expr) if is_option => quote::quote!(::core::option::Option::Some(#expr)),
-            Some(expr) => quote::quote!(#expr),
-        },
         None if is_option => quote::quote!(::core::option::Option::Some(
             ::egui_probe::ProbeDefault::probe_default()
         )),
-        None => quote::quote!(::core::default::Default::default()),
+        None => quote::quote!(::egui_probe::ProbeDefault::probe_default()),
+        Some(Default { expr, .. }) if is_option => {
+            quote::quote!(::core::option::Option::Some(#expr))
+        }
+        Some(Default { expr, .. }) => quote::quote!(#expr),
     };
     // Some(Default {
     //     expr: DefaultExpr(None),

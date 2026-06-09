@@ -29,9 +29,9 @@ macro_rules! impl_probe_default {
     };
 }
 
-// impl_probe_default!(
-//     i8, i16, i32, i64, isize, u8, u16, u32, u64, usize, f32, f64, bool
-// );
+impl_probe_default!(
+    i8, i16, i32, i64, isize, u8, u16, u32, u64, usize, f32, f64, bool
+);
 
 // impl<T: Default> ProbeDefault for T {
 //     fn probe_default() -> Self {
