@@ -413,31 +413,13 @@ fn variant_probe(variant: &syn::Variant) -> syn::Result<proc_macro2::TokenStream
         syn::Fields::Named(_) => quote::quote!(Self::#ident {..}),
     };
 
-    let default_self = match &variant.fields {
-        syn::Fields::Unit => quote::quote!(Self::#ident),
-        syn::Fields::Unnamed(fields) => {
-            let default_fields = fields
-                .unnamed
-                .iter()
-                .map(default_field)
-                .collect::<syn::Result<Vec<_>>>()?;
-            quote::quote!(Self::#ident ( #(#default_fields,)* ))
-        }
-        syn::Fields::Named(fields) => {
-            let default_fields = fields
-                .named
-                .iter()
-                .map(default_field)
-                .collect::<syn::Result<Vec<_>>>()?;
-            quote::quote!(Self::#ident { #(#default_fields,)* })
-        }
-    };
+    let (_, default_variant) = default_variant(&variant)?;
 
     let tokens = quote::quote_spanned! {variant.ident.span() =>
         #[allow(unreachable_patterns)]
         let checked = match self { #pattern => true, _ => false };
         if _ui.selectable_label(checked, #name).clicked() && !checked {
-            *self = #default_self;
+            *self = #default_variant;
         }
         // if _ui.selectable_label(checked, #name).clicked() {
         //     if !checked {
@@ -610,24 +592,24 @@ fn default_unnamed_field(field: &syn::Field) -> syn::Result<proc_macro2::TokenSt
 
     let expr = match attributes.default {
         Some(default) => match default.expr.0 {
-            None => quote::quote!(::egui_probe::EguiProbeDefault::default()),
+            None => quote::quote!(::egui_probe::ProbeDefault::probe_default()),
             Some(expr) if is_option => quote::quote!(::core::option::Option::Some(#expr)),
             Some(expr) => quote::quote!(#expr),
         },
         None if is_option => quote::quote!(::core::option::Option::Some(
-            ::core::default::Default::default()
+            ::egui_probe::ProbeDefault::probe_default()
         )),
         None => quote::quote!(::core::default::Default::default()),
     };
     // Some(Default {
     //     expr: DefaultExpr(None),
     //     ..
-    // }) if is_option => quote::quote!(::egui_probe::EguiProbeDefault::default()),
+    // }) if is_option => quote::quote!(::egui_probe::ProbeDefault::probe_default()),
     // Some(Default {
     //     expr: DefaultExpr(Some(expr)),
     //     ..
     // }) => quote::quote!(#expr),
-    // _ => quote::quote!(::egui_probe::EguiProbeDefault::default()),
+    // _ => quote::quote!(::egui_probe::ProbeDefault::probe_default()),
     // if is_option(&field.ty) {
     //     expr = quote::quote!(::core::option::Option::Some(#expr));
     // }
@@ -643,12 +625,14 @@ fn default_field(field: &syn::Field) -> syn::Result<proc_macro2::TokenStream> {
     })
 }
 
-fn default_fields(fields: &syn::Fields) -> syn::Result<Vec<proc_macro2::TokenStream>> {
-    fields.iter().map(default_field).collect()
+fn default_fields<'a>(
+    fields: impl Iterator<Item = &'a syn::Field>,
+) -> syn::Result<Vec<proc_macro2::TokenStream>> {
+    fields.map(default_field).collect()
 }
 
 fn default_struct(data: &syn::DataStruct) -> syn::Result<proc_macro2::TokenStream> {
-    let default_fields = default_fields(&data.fields)?;
+    let default_fields = default_fields(data.fields.iter())?;
 
     Ok(match data.fields {
         syn::Fields::Named(_) => quote::quote!(Self { #(#default_fields),* }),
@@ -663,7 +647,7 @@ fn default_variant(variant: &syn::Variant) -> syn::Result<(bool, proc_macro2::To
 
     let ident = &variant.ident;
 
-    let default_fields = default_fields(&variant.fields)?;
+    let default_fields = default_fields(variant.fields.iter())?;
 
     let default_self = match &variant.fields {
         syn::Fields::Named(_) => quote::quote!(Self::#ident { #(#default_fields),* } ),
@@ -839,8 +823,8 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
             let default_impl = {
                 let default_struct = default_struct(&data)?;
                 quote::quote! {
-                    impl ::egui_probe::EguiProbeDefault for #ident #ty_generics #where_clause {
-                        fn default() -> Self { #default_struct }
+                    impl ::egui_probe::ProbeDefault for #ident #ty_generics #where_clause {
+                        fn probe_default() -> Self { #default_struct }
                     }
                 }
             };
@@ -938,8 +922,8 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
 
             let default_enum = default_enum(&data)?;
             let default_impl = quote::quote! {
-                impl ::egui_probe::EguiProbeDefault for #ident #ty_generics #where_clause {
-                    fn default() -> Self { #default_enum }
+                impl ::egui_probe::ProbeDefault for #ident #ty_generics #where_clause {
+                    fn probe_default() -> Self { #default_enum }
                 }
             };
 

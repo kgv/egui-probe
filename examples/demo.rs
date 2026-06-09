@@ -1,4 +1,4 @@
-use egui_probe::{EguiProbeDefault, Probe, angle};
+use egui_probe::{ProbeDefault, Probe, angle};
 use egui_probe_proc::EguiProbe;
 use std::collections::HashMap;
 

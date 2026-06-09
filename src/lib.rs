@@ -96,24 +96,13 @@
 
 #![allow(clippy::inline_always, clippy::use_self)]
 
+mod default;
 mod probes;
 mod style;
 mod ui;
 
-// mod algebra;
-// mod array;
-// mod boolean;
-// mod collections;
-// mod color;
-// mod map;
-// mod num;
-// mod option;
-// mod set;
-// mod text;
-// mod vec;
-// mod widget;
-
 pub use self::{
+    default::ProbeDefault,
     probes::{
         boolean::toggle_switch,
         collections::{DeleteMe, EguiProbeDragAndDrop},
@@ -123,11 +112,6 @@ pub use self::{
     style::{BooleanStyle, Style, VariantsStyle},
 };
 pub use egui;
-
-/// Egui probe default
-pub trait EguiProbeDefault {
-    fn default() -> Self;
-}
 
 /// Provides ability to show probbing UI to values.
 pub trait EguiProbe {

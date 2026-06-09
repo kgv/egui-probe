@@ -1,4 +1,4 @@
-use egui_probe::{EguiProbeDefault, Probe};
+use egui_probe::{Probe, ProbeDefault};
 use egui_probe_proc::EguiProbe;
 
 fn main() {
@@ -15,9 +15,10 @@ fn main() {
 #[egui_probe(transparent)]
 struct UpTo7(#[egui_probe(range = ..=7)] u32);
 
-#[derive(EguiProbe)]
+#[derive(Default, EguiProbe)]
 #[egui_probe(tags inlined)]
 enum InlinedTags {
+    #[default]
     Empty,
     #[egui_probe(transparent)]
     InlinedFloat(#[egui_probe(default = 999.0)] f32),
@@ -38,7 +39,7 @@ enum ComboBoxTags {
     },
 }
 
-#[derive(EguiProbe)]
+#[derive(Default, EguiProbe)]
 struct DemoValue {
     #[egui_probe(default = true)]
     boolean: bool,
@@ -49,16 +50,19 @@ struct DemoValue {
     #[egui_probe(default = 1)]
     u8: u8,
 
-    // #[egui_probe(default = Some(true))]
-    maybe_boolean: Option<bool>,
+    // #[egui_probe(default = false)]
+    #[egui_probe(default = false)]
+    maybe_boolean1: Option<bool>,
+    #[egui_probe(default = true)]
+    maybe_boolean2: Option<bool>,
 
     // #[egui_probe(default = EguiProbeDefault::default())]
     // #[egui_probe(default = InlinedTags::InlinedFloat(4.9))]
-    #[egui_probe(default)]
-    inlined_tags: InlinedTags,
-    // // The same as #[egui_probe(default = EguiProbeDefault::default())]
     // #[egui_probe(default)]
-    // option_combobox_tags: Option<ComboBoxTags>,
+    inlined_tags: InlinedTags,
+    // The same as #[egui_probe(default = ProbeDefault::probe_default())]
+    // #[egui_probe(default)]
+    option_combobox_tags: Option<ComboBoxTags>,
     //
     // #[egui_probe(with custom_probe)]
     // custom: Foo,
@@ -97,7 +101,7 @@ impl EguiProbeDemoApp {
         egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
         cc.egui_ctx.set_fonts(fonts);
         EguiProbeDemoApp {
-            value: EguiProbeDefault::default(),
+            value: Default::default(),
             // value: DemoValue {
             //     boolean: false,
             //     boolean_toggle: false,
