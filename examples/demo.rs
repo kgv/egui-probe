@@ -36,10 +36,10 @@ enum InlinedTags {
 }
 
 #[derive(EguiProbe)]
-#[egui_probe(new, tags combobox)]
+#[egui_probe(tags combobox)]
 enum ComboBoxTags {
+    // #[egui_probe(new)]
     Empty,
-    #[egui_probe(new)]
     Num {
         #[egui_probe(range = 2..=9, new = 2)]
         value: usize,
@@ -61,7 +61,6 @@ struct InnerValue {
 }
 
 #[derive(EguiProbe)]
-#[egui_probe(new)]
 struct DemoValue {
     boolean: bool,
 

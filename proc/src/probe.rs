@@ -191,7 +191,7 @@ proc_easy::easy_attributes! {
     @(egui_probe)
     struct TypeAttributes {
         name: Option<Name>,
-        new: Option<new>,
+        // new: Option<new>,
         tags: Option<EnumTags>,
         transparent: Option<transparent>,
         where_clause: Option<WhereClause>,
@@ -202,7 +202,7 @@ proc_easy::easy_attributes! {
     @(egui_probe)
     struct VariantAttributes {
         name: Option<Name>,
-        new: Option<new>,
+        default: Option<new>,
         transparent: Option<transparent>,
     }
 }
@@ -383,16 +383,6 @@ fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2
     }
 
     Ok(Some(tokens))
-}
-
-fn variant_new(variant: &syn::Variant) -> syn::Result<Option<proc_macro2::TokenStream>> {
-    let attributes: VariantAttributes =
-        proc_easy::EasyAttributes::parse(&variant.attrs, variant.span())?;
-    if attributes.new.is_some() {
-        Ok(Some(quote::quote!()))
-    } else {
-        Ok(None)
-    }
 }
 
 /// Генерирует ветку match, которая возвращает строковое имя варианта, если он
@@ -628,6 +618,62 @@ fn variant_iterate_inner(variant: &syn::Variant) -> syn::Result<proc_macro2::Tok
     }
 }
 
+fn variant_default(variant: &syn::Variant) -> syn::Result<(bool, proc_macro2::TokenStream)> {
+    let attributes: VariantAttributes =
+        proc_easy::EasyAttributes::parse(&variant.attrs, variant.span())?;
+
+    let ident = &variant.ident;
+
+    let default_fields = variant
+        .fields
+        .iter()
+        .map(field_default)
+        .collect::<syn::Result<Vec<_>>>()?;
+
+    let default_self = match &variant.fields {
+        syn::Fields::Named(_) => {
+            quote::quote!(Self::#ident { #(#default_fields),* } )
+        }
+        syn::Fields::Unnamed(_) => {
+            quote::quote!(Self::#ident ( #(#default_fields),* ))
+        }
+        syn::Fields::Unit => quote::quote!(Self::#ident),
+    };
+
+    Ok((attributes.default.is_some(), default_self))
+}
+
+fn variants_default(
+    variants: &syn::punctuated::Punctuated<syn::Variant, syn::token::Comma>,
+) -> syn::Result<proc_macro2::TokenStream> {
+    let mut implicit_variant_default = None;
+    let mut explicit_variant_default = Vec::new();
+    for (index, variant) in variants.iter().enumerate() {
+        let (is_default, variant_default) = variant_default(variant)?;
+        if index == 0 {
+            implicit_variant_default = Some(variant_default.clone());
+        }
+        if is_default {
+            explicit_variant_default.push(variant_default);
+        }
+    }
+    if explicit_variant_default.len() > 1 {
+        return Err(syn::Error::new_spanned(
+            variants,
+            "EguiProbe: only one variant can be marked with `#[egui_probe(default)]` attribute",
+        ));
+    } else if let Some(explicit_variant_default) = explicit_variant_default.pop() {
+        Ok(explicit_variant_default)
+    } else if let Some(implicit_variant_default) = implicit_variant_default {
+        Ok(implicit_variant_default)
+    } else {
+        return Err(syn::Error::new_spanned(
+            variants,
+            "EguiProbe: enum must have at least one variant to derive default",
+        ));
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let ident = &input.ident;
@@ -746,30 +792,27 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
                 }
             };
 
-            if attributes.new.is_some() {
-                let new_impl = {
-                    let new_fields = data
-                        .fields
-                        .iter()
-                        .map(field_default)
-                        .collect::<syn::Result<Vec<_>>>()?;
-                    let new_self = match &data.fields {
-                        syn::Fields::Named(_) => quote::quote!( Self { #(#new_fields),* } ),
-                        syn::Fields::Unnamed(_) => quote::quote!( Self ( #(#new_fields),* ) ),
-                        syn::Fields::Unit => quote::quote!(Self),
-                    };
-                    quote::quote! {
-                        impl ::egui_probe::New for #ident #ty_generics #where_clause {
-                            fn new() -> Self { #new_self }
-                        }
+            let new_impl = {
+                let new_fields = data
+                    .fields
+                    .iter()
+                    .map(field_default)
+                    .collect::<syn::Result<Vec<_>>>()?;
+                let new_self = match &data.fields {
+                    syn::Fields::Named(_) => quote::quote!( Self { #(#new_fields),* } ),
+                    syn::Fields::Unnamed(_) => quote::quote!( Self ( #(#new_fields),* ) ),
+                    syn::Fields::Unit => quote::quote!(Self),
+                };
+                quote::quote! {
+                    impl ::egui_probe::New for #ident #ty_generics #where_clause {
+                        fn new() -> Self { #new_self }
                     }
-                };
-                r#impl = quote::quote! {
-                    #r#impl
-                    #new_impl
-                };
-            }
-            Ok(r#impl)
+                }
+            };
+            Ok(quote::quote! {
+                #r#impl
+                #new_impl
+            })
         }
         syn::Data::Enum(data) => {
             if let Some(transparent) = attributes.transparent {
@@ -815,7 +858,7 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
                 }) => quote::quote!(::egui_probe::VariantsStyle::ComboBox),
             };
 
-            let mut r#impl = quote::quote! {
+            let egui_probe_impl = quote::quote! {
                 impl #impl_generics ::egui_probe::EguiProbe for #ident #ty_generics
                     #where_clause
                     {
@@ -858,74 +901,17 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
                     }
             };
 
-            // let variant_new = data
-            //     .variants
-            //     .iter()
-            //     .filter_map(|variant| variant_new(variant).transpose())
-            //     .collect::<syn::Result<Vec<_>>>()?;
-            // if variant_new.len() != 1 {
-            //     return Err(syn::Error::new_spanned(
-            //         attributes.new.unwrap(),
-            //         "Enum must only one new field",
-            //     ));
-            // }
-            if attributes.new.is_some() {
-                let mut new_impl = quote::quote!();
-                for variant in &data.variants {
-                    let attributes: VariantAttributes =
-                        proc_easy::EasyAttributes::parse(&variant.attrs, variant.span())?;
-                    if attributes.new.is_some() {
-                        let variant_ident = &variant.ident;
-                        let new_fields = variant
-                            .fields
-                            .iter()
-                            .map(field_default)
-                            .collect::<syn::Result<Vec<_>>>()?;
-                        let new_self = match &variant.fields {
-                            syn::Fields::Named(_) => {
-                                quote::quote!(Self::#variant_ident { #(#new_fields),* } )
-                            }
-                            syn::Fields::Unnamed(_) => {
-                                quote::quote!(Self::#variant_ident ( #(#new_fields),* ))
-                            }
-                            syn::Fields::Unit => quote::quote!(Self),
-                        };
-                        new_impl = quote::quote! {
-                            impl ::egui_probe::New for #ident #ty_generics #where_clause {
-                                fn new() -> Self { #new_self }
-                            }
-                        };
-                        // let construct = match &variant.fields {
-                        //     syn::Fields::Unit => quote::quote!(Self::#variant_ident),
-                        //     syn::Fields::Unnamed(fields) => {
-                        //         let defaults = fields
-                        //             .unnamed
-                        //             .iter()
-                        //             .map(|_| quote::quote!(::core::default::Default::default()));
-                        //         quote::quote!(Self::#variant_ident(#(#defaults),*))
-                        //     }
-                        //     syn::Fields::Named(fields) => {
-                        //         let defaults = fields.named.iter().map(|f| {
-                        //             let f_ident = f.ident.as_ref().unwrap();
-                        //             quote::quote!(#f_ident: ::core::default::Default::default())
-                        //         });
-                        //         quote::quote!(Self::#variant_ident { #(#defaults),* })
-                        //     }
-                        // };
-                        // new_impl = quote::quote! {
-                        //     impl #impl_generics ::core::default::Default for #ident #ty_generics #where_clause {
-                        //         fn default() -> Self { #construct }
-                        //     }
-                        // };
-                        break;
-                    }
+            let variants_default = variants_default(&data.variants)?;
+            let default_impl = quote::quote! {
+                impl ::egui_probe::New for #ident #ty_generics #where_clause {
+                    fn new() -> Self { #variants_default }
                 }
-                r#impl = quote::quote! {
-                    #r#impl
-                    #new_impl
-                };
-            }
-            Ok(r#impl)
+            };
+
+            Ok(quote::quote! {
+                #egui_probe_impl
+                #default_impl
+            })
         }
         syn::Data::Union(_) => Err(syn::Error::new_spanned(
             input,
