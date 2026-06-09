@@ -1,18 +1,13 @@
-use egui::{CornerRadius, Frame, Margin, Stroke, epaint::Shadow};
-
-use crate::{EguiProbe, num::non_negative};
+use crate::{EguiProbe, probes::num::non_negative};
+use egui::{CornerRadius, Frame, Margin, Response, Stroke, Ui, epaint::Shadow};
 
 impl EguiProbe for Stroke {
-    fn probe(&mut self, ui: &mut egui::Ui, _style: &crate::Style) -> egui::Response {
+    fn probe(&mut self, ui: &mut Ui, _style: &crate::Style) -> Response {
         ui.weak("Stroke")
     }
 
     #[inline(always)]
-    fn iterate_inner(
-        &mut self,
-        ui: &mut egui::Ui,
-        f: &mut dyn FnMut(&str, &mut egui::Ui, &mut dyn EguiProbe),
-    ) {
+    fn iterate_inner(&mut self, ui: &mut Ui, f: &mut dyn FnMut(&str, &mut Ui, &mut dyn EguiProbe)) {
         f("color", ui, &mut self.color);
         f("width", ui, &mut non_negative(&mut self.width));
     }
@@ -20,16 +15,12 @@ impl EguiProbe for Stroke {
 
 impl EguiProbe for Margin {
     #[inline(always)]
-    fn probe(&mut self, ui: &mut egui::Ui, _style: &crate::Style) -> egui::Response {
+    fn probe(&mut self, ui: &mut Ui, _style: &crate::Style) -> Response {
         ui.weak("Margin")
     }
 
     #[inline(always)]
-    fn iterate_inner(
-        &mut self,
-        ui: &mut egui::Ui,
-        f: &mut dyn FnMut(&str, &mut egui::Ui, &mut dyn EguiProbe),
-    ) {
+    fn iterate_inner(&mut self, ui: &mut Ui, f: &mut dyn FnMut(&str, &mut Ui, &mut dyn EguiProbe)) {
         f("top", ui, &mut non_negative(&mut self.top));
         f("left", ui, &mut non_negative(&mut self.left));
         f("bottom", ui, &mut non_negative(&mut self.bottom));
@@ -39,16 +30,12 @@ impl EguiProbe for Margin {
 
 impl EguiProbe for CornerRadius {
     #[inline(always)]
-    fn probe(&mut self, ui: &mut egui::Ui, _style: &crate::Style) -> egui::Response {
+    fn probe(&mut self, ui: &mut Ui, _style: &crate::Style) -> Response {
         ui.weak("Rounding")
     }
 
     #[inline(always)]
-    fn iterate_inner(
-        &mut self,
-        ui: &mut egui::Ui,
-        f: &mut dyn FnMut(&str, &mut egui::Ui, &mut dyn EguiProbe),
-    ) {
+    fn iterate_inner(&mut self, ui: &mut Ui, f: &mut dyn FnMut(&str, &mut Ui, &mut dyn EguiProbe)) {
         f("nw", ui, &mut non_negative(&mut self.nw));
         f("ne", ui, &mut non_negative(&mut self.ne));
         f("sw", ui, &mut non_negative(&mut self.sw));
@@ -58,15 +45,11 @@ impl EguiProbe for CornerRadius {
 
 impl EguiProbe for Shadow {
     #[inline(always)]
-    fn probe(&mut self, ui: &mut egui::Ui, _style: &crate::Style) -> egui::Response {
+    fn probe(&mut self, ui: &mut Ui, _style: &crate::Style) -> Response {
         ui.weak("Shadow")
     }
 
-    fn iterate_inner(
-        &mut self,
-        ui: &mut egui::Ui,
-        f: &mut dyn FnMut(&str, &mut egui::Ui, &mut dyn EguiProbe),
-    ) {
+    fn iterate_inner(&mut self, ui: &mut Ui, f: &mut dyn FnMut(&str, &mut Ui, &mut dyn EguiProbe)) {
         f("offset", ui, &mut self.offset);
         f("blur", ui, &mut non_negative(&mut self.blur));
         f("spread", ui, &mut non_negative(&mut self.spread));
@@ -76,16 +59,12 @@ impl EguiProbe for Shadow {
 
 impl EguiProbe for Frame {
     #[inline(always)]
-    fn probe(&mut self, ui: &mut egui::Ui, _style: &crate::Style) -> egui::Response {
+    fn probe(&mut self, ui: &mut Ui, _style: &crate::Style) -> Response {
         ui.weak("Frame")
     }
 
     #[inline(always)]
-    fn iterate_inner(
-        &mut self,
-        ui: &mut egui::Ui,
-        f: &mut dyn FnMut(&str, &mut egui::Ui, &mut dyn EguiProbe),
-    ) {
+    fn iterate_inner(&mut self, ui: &mut Ui, f: &mut dyn FnMut(&str, &mut Ui, &mut dyn EguiProbe)) {
         f("inner_margin", ui, &mut self.inner_margin);
         f("outer_margin", ui, &mut self.outer_margin);
         f("rounding", ui, &mut self.corner_radius);

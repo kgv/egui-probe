@@ -1,4 +1,4 @@
-use crate::{EguiProbe, Style, option::option_probe_with};
+use crate::{EguiProbe, Style, probes::option::option_probe_with};
 use core::ops::{RangeFrom, RangeFull, RangeInclusive, RangeToInclusive};
 use egui::emath::Numeric;
 
@@ -277,7 +277,6 @@ macro_rules! impl_for_num_types {
             }
         }
     };
-
     ($($num_type:ident),*) => {
         $(impl_for_num_types!($num_type);)*
     };

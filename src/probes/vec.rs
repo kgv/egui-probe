@@ -1,7 +1,9 @@
 use crate::{
     EguiProbe,
-    collections::{DeleteMe, EguiProbeDragAndDrop, EguiProbeFrozen},
-    option::option_probe_with,
+    probes::{
+        collections::{DeleteMe, EguiProbeDragAndDrop, EguiProbeFrozen},
+        option::option_probe_with,
+    },
 };
 use egui_dnd::dnd;
 use egui_phosphor::regular::DOTS_SIX_VERTICAL;

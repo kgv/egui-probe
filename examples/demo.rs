@@ -93,10 +93,12 @@ struct DemoValue {
 
     inner: InnerValue,
 
-    #[egui_probe(default = InlinedTags::Empty)]
+    #[egui_probe(default)]
+    // #[egui_probe(default = EguiProbeDefault::default())]
+    // #[egui_probe(default = InlinedTags::InlinedFloat(4.9))]
     inlined_tags: InlinedTags,
 
-    // #[egui_probe(default = EguiProbeDefault::default())]
+    // The same as #[egui_probe(default = EguiProbeDefault::default())]
     #[egui_probe(default)]
     option_combobox_tags: Option<ComboBoxTags>,
 

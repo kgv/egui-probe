@@ -6,7 +6,7 @@ use self::keywords::{
 };
 use crate::name_display::NameDisplay as _;
 use proc_easy::EasyArgument as _;
-use syn::{parse::Parse, spanned::Spanned as _};
+use syn::{DataEnum, parse::Parse, spanned::Spanned as _};
 
 macro_rules! validate {
     ($condition:expr; !$attributes:expr => [ $($attribute:ident),+ ]) => {
@@ -140,14 +140,29 @@ proc_easy::easy_argument! {
     }
 }
 
-// Argument value
-
-proc_easy::easy_argument_value! {
+proc_easy::easy_argument! {
     struct Default {
         default: default,
-        expr: syn::Expr,
+        expr: DefaultExpr,
     }
 }
+
+/// Default expr
+struct DefaultExpr(Option<syn::Expr>);
+
+impl Parse for DefaultExpr {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let expr = if input.peek(syn::Token![=]) {
+            let _eq: syn::Token![=] = input.parse()?;
+            Some(input.parse()?)
+        } else {
+            None
+        };
+        Ok(Self(expr))
+    }
+}
+
+// Argument value
 
 proc_easy::easy_argument_value! {
     struct Bookmarks {
@@ -206,15 +221,6 @@ proc_easy::easy_attributes! {
     }
 }
 
-fn is_option(ty: &syn::Type) -> bool {
-    if let syn::Type::Path(type_path) = ty {
-        if let Some(segment) = type_path.path.segments.last() {
-            return segment.ident == "Option";
-        }
-    }
-    false
-}
-
 fn make_name(name: Option<Name>, ident: Option<&syn::Ident>) -> proc_macro2::TokenStream {
     match name {
         Some(name) => {
@@ -241,28 +247,6 @@ fn field_name(field: &syn::Field) -> syn::Result<Option<proc_macro2::TokenStream
     Ok(Some(name))
 }
 
-fn field_default(field: &syn::Field) -> syn::Result<proc_macro2::TokenStream> {
-    let expr = unnamed_field_default(field)?;
-
-    Ok(match &field.ident {
-        Some(ident) => quote::quote!(#ident: #expr),
-        None => quote::quote!(#expr),
-    })
-}
-
-fn unnamed_field_default(field: &syn::Field) -> syn::Result<proc_macro2::TokenStream> {
-    let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
-
-    let mut expr = match attributes.default {
-        Some(Default { expr, .. }) => quote::quote!(#expr),
-        _ => quote::quote!(::core::default::Default::default()),
-    };
-    if is_option(&field.ty) {
-        expr = quote::quote!(::core::option::Option::Some(#expr));
-    }
-    Ok(expr)
-}
-
 fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2::TokenStream>> {
     let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
 
@@ -273,7 +257,7 @@ fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2
     let mut tokens = match attributes.kind {
         None => {
             if is_option(&field.ty) {
-                let default = unnamed_field_default(field)?;
+                let default = default_unnamed_field(field)?;
                 quote::quote_spanned! {field.span() =>
                     &mut probe_option(#binding, || #default)
                 }
@@ -435,7 +419,7 @@ fn variant_probe(variant: &syn::Variant) -> syn::Result<proc_macro2::TokenStream
             let default_fields = fields
                 .unnamed
                 .iter()
-                .map(field_default)
+                .map(default_field)
                 .collect::<syn::Result<Vec<_>>>()?;
             quote::quote!(Self::#ident ( #(#default_fields,)* ))
         }
@@ -443,7 +427,7 @@ fn variant_probe(variant: &syn::Variant) -> syn::Result<proc_macro2::TokenStream
             let default_fields = fields
                 .named
                 .iter()
-                .map(field_default)
+                .map(default_field)
                 .collect::<syn::Result<Vec<_>>>()?;
             quote::quote!(Self::#ident { #(#default_fields,)* })
         }
@@ -617,61 +601,122 @@ fn variant_iterate_inner(variant: &syn::Variant) -> syn::Result<proc_macro2::Tok
     }
 }
 
-fn variant_default(variant: &syn::Variant) -> syn::Result<(bool, proc_macro2::TokenStream)> {
+// Default
+
+fn default_unnamed_field(field: &syn::Field) -> syn::Result<proc_macro2::TokenStream> {
+    let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
+
+    let is_option = is_option(&field.ty);
+
+    let expr = match attributes.default {
+        Some(default) => match default.expr.0 {
+            None => quote::quote!(::egui_probe::EguiProbeDefault::default()),
+            Some(expr) if is_option => quote::quote!(::core::option::Option::Some(#expr)),
+            Some(expr) => quote::quote!(#expr),
+        },
+        None if is_option => quote::quote!(::core::option::Option::Some(
+            ::core::default::Default::default()
+        )),
+        None => quote::quote!(::core::default::Default::default()),
+    };
+    // Some(Default {
+    //     expr: DefaultExpr(None),
+    //     ..
+    // }) if is_option => quote::quote!(::egui_probe::EguiProbeDefault::default()),
+    // Some(Default {
+    //     expr: DefaultExpr(Some(expr)),
+    //     ..
+    // }) => quote::quote!(#expr),
+    // _ => quote::quote!(::egui_probe::EguiProbeDefault::default()),
+    // if is_option(&field.ty) {
+    //     expr = quote::quote!(::core::option::Option::Some(#expr));
+    // }
+    Ok(expr)
+}
+
+fn default_field(field: &syn::Field) -> syn::Result<proc_macro2::TokenStream> {
+    let expr = default_unnamed_field(field)?;
+
+    Ok(match &field.ident {
+        Some(ident) => quote::quote!(#ident: #expr),
+        None => quote::quote!(#expr),
+    })
+}
+
+fn default_fields(fields: &syn::Fields) -> syn::Result<Vec<proc_macro2::TokenStream>> {
+    fields.iter().map(default_field).collect()
+}
+
+fn default_struct(data: &syn::DataStruct) -> syn::Result<proc_macro2::TokenStream> {
+    let default_fields = default_fields(&data.fields)?;
+
+    Ok(match data.fields {
+        syn::Fields::Named(_) => quote::quote!(Self { #(#default_fields),* }),
+        syn::Fields::Unnamed(_) => quote::quote!(Self ( #(#default_fields),* )),
+        syn::Fields::Unit => quote::quote!(Self),
+    })
+}
+
+fn default_variant(variant: &syn::Variant) -> syn::Result<(bool, proc_macro2::TokenStream)> {
     let attributes: VariantAttributes =
         proc_easy::EasyAttributes::parse(&variant.attrs, variant.span())?;
 
     let ident = &variant.ident;
 
-    let default_fields = variant
-        .fields
-        .iter()
-        .map(field_default)
-        .collect::<syn::Result<Vec<_>>>()?;
+    let default_fields = default_fields(&variant.fields)?;
 
     let default_self = match &variant.fields {
-        syn::Fields::Named(_) => {
-            quote::quote!(Self::#ident { #(#default_fields),* } )
-        }
-        syn::Fields::Unnamed(_) => {
-            quote::quote!(Self::#ident ( #(#default_fields),* ))
-        }
+        syn::Fields::Named(_) => quote::quote!(Self::#ident { #(#default_fields),* } ),
+        syn::Fields::Unnamed(_) => quote::quote!(Self::#ident ( #(#default_fields),* )),
         syn::Fields::Unit => quote::quote!(Self::#ident),
     };
 
     Ok((attributes.default.is_some(), default_self))
 }
 
-fn variants_default(
-    variants: &syn::punctuated::Punctuated<syn::Variant, syn::token::Comma>,
-) -> syn::Result<proc_macro2::TokenStream> {
-    let mut implicit_variant_default = None;
-    let mut explicit_variant_default = Vec::new();
-    for (index, variant) in variants.iter().enumerate() {
-        let (is_default, variant_default) = variant_default(variant)?;
+fn default_enum(data: &syn::DataEnum) -> syn::Result<proc_macro2::TokenStream> {
+    let mut implicit_default_variant = None;
+    let mut explicit_default_variant = Vec::new();
+
+    for (index, variant) in data.variants.iter().enumerate() {
+        let (is_default, default_variant) = default_variant(variant)?;
         if index == 0 {
-            implicit_variant_default = Some(variant_default.clone());
+            implicit_default_variant = Some(default_variant.clone());
         }
         if is_default {
-            explicit_variant_default.push(variant_default);
+            explicit_default_variant.push(default_variant);
         }
     }
-    if explicit_variant_default.len() > 1 {
+
+    if explicit_default_variant.len() > 1 {
         return Err(syn::Error::new_spanned(
-            variants,
+            data.enum_token,
             "EguiProbe: only one variant can be marked with `#[egui_probe(default)]` attribute",
         ));
-    } else if let Some(explicit_variant_default) = explicit_variant_default.pop() {
-        Ok(explicit_variant_default)
-    } else if let Some(implicit_variant_default) = implicit_variant_default {
-        Ok(implicit_variant_default)
+    } else if let Some(explicit_default_variant) = explicit_default_variant.pop() {
+        Ok(explicit_default_variant)
+    } else if let Some(implicit_default_variant) = implicit_default_variant {
+        Ok(implicit_default_variant)
     } else {
         return Err(syn::Error::new_spanned(
-            variants,
+            data.enum_token,
             "EguiProbe: enum must have at least one variant to derive default",
         ));
     }
 }
+
+// Utils
+
+fn is_option(ty: &syn::Type) -> bool {
+    if let syn::Type::Path(type_path) = ty {
+        if let Some(segment) = type_path.path.segments.last() {
+            return segment.ident == "Option";
+        }
+    }
+    false
+}
+
+// Derive
 
 #[allow(clippy::too_many_lines)]
 pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
@@ -792,19 +837,10 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
             };
 
             let default_impl = {
-                let default_fields = data
-                    .fields
-                    .iter()
-                    .map(field_default)
-                    .collect::<syn::Result<Vec<_>>>()?;
-                let default_self = match &data.fields {
-                    syn::Fields::Named(_) => quote::quote!( Self { #(#default_fields),* } ),
-                    syn::Fields::Unnamed(_) => quote::quote!( Self ( #(#default_fields),* ) ),
-                    syn::Fields::Unit => quote::quote!(Self),
-                };
+                let default_struct = default_struct(&data)?;
                 quote::quote! {
                     impl ::egui_probe::EguiProbeDefault for #ident #ty_generics #where_clause {
-                        fn default() -> Self { #default_self }
+                        fn default() -> Self { #default_struct }
                     }
                 }
             };
@@ -900,10 +936,10 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
                     }
             };
 
-            let variants_default = variants_default(&data.variants)?;
+            let default_enum = default_enum(&data)?;
             let default_impl = quote::quote! {
                 impl ::egui_probe::EguiProbeDefault for #ident #ty_generics #where_clause {
-                    fn default() -> Self { #variants_default }
+                    fn default() -> Self { #default_enum }
                 }
             };
 

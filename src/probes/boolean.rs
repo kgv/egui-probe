@@ -1,6 +1,5 @@
+use crate::{EguiProbe, Style, option_probe_with, style::BooleanStyle};
 use egui::StrokeKind;
-
-use crate::{BooleanStyle, EguiProbe, Style, option_probe_with};
 
 pub struct ToggleSwitch<'a, T>(pub &'a mut T);
 

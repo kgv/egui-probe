@@ -96,94 +96,37 @@
 
 #![allow(clippy::inline_always, clippy::use_self)]
 
-mod algebra;
-mod array;
-mod boolean;
-mod collections;
-mod color;
-mod map;
-mod num;
-mod option;
-mod set;
-mod text;
+mod probes;
+mod style;
 mod ui;
-mod vec;
-mod widget;
+
+// mod algebra;
+// mod array;
+// mod boolean;
+// mod collections;
+// mod color;
+// mod map;
+// mod num;
+// mod option;
+// mod set;
+// mod text;
+// mod vec;
+// mod widget;
 
 pub use self::{
-    boolean::toggle_switch,
-    collections::{DeleteMe, EguiProbeDragAndDrop},
-    option::{EguiProbeOption, option_probe_with},
-    widget::{Probe, ProbeLayout},
+    probes::{
+        boolean::toggle_switch,
+        collections::{DeleteMe, EguiProbeDragAndDrop},
+        option::{EguiProbeOption, option_probe_with},
+        widget::{Probe, ProbeLayout},
+    },
+    style::{BooleanStyle, Style, VariantsStyle},
 };
 pub use egui;
-
-use egui_phosphor::regular::{MINUS, PLUS};
 
 /// Egui probe default
 pub trait EguiProbeDefault {
     fn default() -> Self;
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum BooleanStyle {
-    Checkbox,
-    ToggleSwitch,
-}
-
-impl Default for BooleanStyle {
-    #[inline]
-    fn default() -> Self {
-        Self::Checkbox
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum VariantsStyle {
-    Inlined,
-    ComboBox,
-}
-
-impl Default for VariantsStyle {
-    #[inline]
-    fn default() -> Self {
-        Self::ComboBox
-    }
-}
-
-/// Controls the style of probbing UI.
-#[derive(Clone, Copy, Debug)]
-pub struct Style {
-    pub boolean: BooleanStyle,
-    pub variants: VariantsStyle,
-    pub field_indent_size: Option<f32>,
-    pub add_button_text: Option<&'static str>,
-    pub remove_button_text: Option<&'static str>,
-}
-
-impl Default for Style {
-    #[inline]
-    fn default() -> Self {
-        Style {
-            boolean: BooleanStyle::default(),
-            variants: VariantsStyle::default(),
-            field_indent_size: None,
-            add_button_text: None,
-            remove_button_text: None,
-        }
-    }
-}
-
-impl Style {
-    #[must_use]
-    pub fn add_button_text(&self) -> String {
-        self.add_button_text.unwrap_or(PLUS).to_string()
-    }
-
-    #[must_use]
-    pub fn remove_button_text(&self) -> String {
-        self.remove_button_text.unwrap_or(MINUS).to_string()
-    }
 }
 
 /// Provides ability to show probbing UI to values.
@@ -270,16 +213,16 @@ pub fn angle(value: &mut f32) -> impl EguiProbe + '_ {
 
 pub mod customize {
     use super::{
-        EguiProbe, EguiProbeOption, Style,
-        boolean::ToggleSwitch,
-        collections::EguiProbeFrozen,
-        color::{
-            EguiProbeRgb, EguiProbeRgba, EguiProbeRgbaPremultiplied, EguiProbeRgbaUnmultiplied,
+        EguiProbe, EguiProbeOption, Style, egui, probe_fn,
+        probes::{
+            boolean::ToggleSwitch,
+            collections::EguiProbeFrozen,
+            color::{
+                EguiProbeRgb, EguiProbeRgba, EguiProbeRgbaPremultiplied, EguiProbeRgbaUnmultiplied,
+            },
+            num::{EguiProbeRange, StepUnset},
+            text::EguiProbeMultiline,
         },
-        egui,
-        num::{EguiProbeRange, StepUnset},
-        probe_fn,
-        text::EguiProbeMultiline,
     };
     use std::ops::RangeFull;
 
