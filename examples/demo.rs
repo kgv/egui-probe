@@ -27,11 +27,8 @@ struct UpTo7(#[egui_probe(range = ..=7)] u32);
 #[egui_probe(tags inlined)]
 enum InlinedTags {
     Empty,
-
-    // #[egui_probe(default = 999.0)]
     #[egui_probe(transparent)]
-    InlinedFloat(f32),
-
+    InlinedFloat(#[egui_probe(default = 999.0)] f32),
     Text {
         #[egui_probe(default = String::from("FROM"), multiline)]
         text: String,
@@ -58,6 +55,7 @@ struct InnerValue {
 }
 
 #[derive(EguiProbe)]
+#[egui_probe(default)]
 struct DemoValue {
     boolean: bool,
 

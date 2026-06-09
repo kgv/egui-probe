@@ -93,6 +93,7 @@
 //! Contributions are welcome! Please open an issue or submit a pull request.
 //!
 //! Enjoy building your UI with Egui Probe! 🚀
+
 #![allow(clippy::inline_always, clippy::use_self)]
 
 mod algebra;

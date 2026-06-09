@@ -9,9 +9,9 @@ use proc_easy::EasyArgument as _;
 use syn::{parse::Parse, spanned::Spanned as _};
 
 macro_rules! validate {
-    (skip: !$attributes:expr => [ $($attribute:ident),+ ]) => {
+    ($condition:expr; !$attributes:expr => [ $($attribute:ident),+ ]) => {
         (|| -> syn::Result<Option<proc_macro2::TokenStream>> {
-            if $attributes.skip.is_some() {
+            if $condition {
                 $(
                     if let Some(attribute) = &$attributes.$attribute {
                         return Err(syn::Error::new(
@@ -162,15 +162,6 @@ proc_easy::easy_argument_value! {
 //     }
 // }
 
-// impl DefaultAttr {
-//     fn name_display(&self) -> &'static str {
-//         "default"
-//     }
-//     fn name_span(&self) -> proc_macro2::Span {
-//         self.default.span()
-//     }
-// }
-
 proc_easy::easy_argument_value! {
     struct Bookmarks {
         bookmarks: bookmarks,
@@ -212,7 +203,7 @@ proc_easy::easy_attributes! {
 proc_easy::easy_attributes! {
     @(egui_probe)
     struct TypeAttributes {
-        default: Option<default>,
+        default: Option<Default>,
         name: Option<Name>,
         tags: Option<EnumTags>,
         transparent: Option<transparent>,
@@ -244,11 +235,10 @@ fn make_name(name: Option<Name>, ident: Option<&syn::Ident>) -> proc_macro2::Tok
     }
 }
 
-// FieldAttributes
 fn field_name(field: &syn::Field) -> syn::Result<Option<proc_macro2::TokenStream>> {
     let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
 
-    validate!(skip: !attributes => [bookmarks, default, kind, name])?;
+    validate!(attributes.skip.is_some(); !attributes => [bookmarks, default, kind, name])?;
 
     let name = make_name(attributes.name, field.ident.as_ref());
 
@@ -256,9 +246,9 @@ fn field_name(field: &syn::Field) -> syn::Result<Option<proc_macro2::TokenStream
 }
 
 fn field_default(field: &syn::Field) -> syn::Result<proc_macro2::TokenStream> {
-    let attrs: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
+    let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
 
-    let expr = match attrs.default {
+    let expr = match attributes.default {
         Some(Default { expr, .. }) => quote::quote!(#expr),
         _ => quote::quote!(::core::default::Default::default()),
     };
@@ -269,11 +259,10 @@ fn field_default(field: &syn::Field) -> syn::Result<proc_macro2::TokenStream> {
     })
 }
 
-// FieldAttributes
 fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2::TokenStream>> {
     let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
 
-    validate!(skip: !attributes => [bookmarks, default, kind, name])?;
+    validate!(attributes.skip.is_some(); !attributes => [bookmarks, default, kind, name])?;
 
     let binding = quote::format_ident!("___{}", idx);
 
@@ -384,12 +373,15 @@ fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2
     Ok(Some(tokens))
 }
 
-// VariantAttributes
+/// Генерирует ветку match, которая возвращает строковое имя варианта, если он
+/// сейчас выбран.  
+/// Когда enum отображается в виде выпадающего списка (ComboBox), на самой
+/// кнопке списка должно быть написано имя текущего активного варианта.
 fn variant_selected(variant: &syn::Variant) -> syn::Result<proc_macro2::TokenStream> {
     let attributes: VariantAttributes =
         proc_easy::EasyAttributes::parse(&variant.attrs, variant.span())?;
 
-    let ident: &proc_macro2::Ident = &variant.ident;
+    let ident = &variant.ident;
 
     let name = make_name(attributes.name, Some(ident));
 
@@ -406,14 +398,32 @@ fn variant_selected(variant: &syn::Variant) -> syn::Result<proc_macro2::TokenStr
     Ok(tokens)
 }
 
-// VariantAttributes
+/// Генерирует UI-элемент (кнопку в выпадающем списке или selectable_label в
+/// линию), который позволяет пользователю выбрать этот вариант.  
+/// Это сама логика переключения. Функция проверяет, выбран ли этот вариант
+/// сейчас (checked). Если пользователь кликает по кнопке, а вариант был не
+/// выбран, макрос мутирует self, заменяя текущее значение на этот новый вариант
+/// (заполняя его поля дефолтными значениями).
 fn variant_probe(variant: &syn::Variant) -> syn::Result<proc_macro2::TokenStream> {
     let attributes: VariantAttributes =
         proc_easy::EasyAttributes::parse(&variant.attrs, variant.span())?;
 
     let ident = &variant.ident;
 
-    let default_self = match &variant.fields {
+    let name = make_name(attributes.name, Some(ident));
+
+    let pattern = match variant.fields {
+        syn::Fields::Unit => quote::quote!(Self::#ident),
+        syn::Fields::Unnamed(_) => quote::quote!(Self::#ident (..)),
+        syn::Fields::Named(_) => quote::quote!(Self::#ident {..}),
+    };
+
+    // let default = match attributes.default {
+    //     Some(Default { expr, .. }) => quote::quote!(#expr),
+    //     _ => quote::quote!(::core::default::Default::default()),
+    // };
+
+    let default = match &variant.fields {
         syn::Fields::Unit => quote::quote!(Self::#ident),
         syn::Fields::Unnamed(fields) => {
             let default_fields = fields
@@ -433,19 +443,11 @@ fn variant_probe(variant: &syn::Variant) -> syn::Result<proc_macro2::TokenStream
         }
     };
 
-    let name = make_name(attributes.name, Some(ident));
-
-    let pattern = match variant.fields {
-        syn::Fields::Unit => quote::quote!(Self::#ident),
-        syn::Fields::Unnamed(_) => quote::quote! {Self::#ident (..)},
-        syn::Fields::Named(_) => quote::quote! {Self::#ident {..}},
-    };
-
     let tokens = quote::quote_spanned! {variant.ident.span() =>
         #[allow(unreachable_patterns)]
         let checked = match self { #pattern => true, _ => false };
         if _ui.selectable_label(checked, #name).clicked() && !checked {
-            *self = #default_self;
+            *self = #default;
         }
         // if _ui.selectable_label(checked, #name).clicked() {
         //     if !checked {
@@ -460,7 +462,13 @@ fn variant_probe(variant: &syn::Variant) -> syn::Result<proc_macro2::TokenStream
     Ok(tokens)
 }
 
-// VariantAttributes
+/// Генерирует код для отрисовки полей варианта прямо рядом с кнопкой выбора (в
+/// ту же горизонтальную линию), но только если вариант помечен атрибутом
+/// #[egui_probe(transparent)].  
+/// Обычно поля варианта рисуются ниже, в виде таблицы/дерева свойств. Но если у
+/// варианта всего одно поле (например, Color(Rgb)), вы можете захотеть, чтобы
+/// виджет цвета рисовался прямо в той же строке, что и выпадающий список. Если
+/// атрибута transparent нет, функция генерирует пустой блок {}.
 fn variant_inline_probe(variant: &syn::Variant) -> syn::Result<proc_macro2::TokenStream> {
     let attributes: VariantAttributes =
         proc_easy::EasyAttributes::parse(&variant.attrs, variant.span())?;
@@ -522,7 +530,13 @@ fn variant_inline_probe(variant: &syn::Variant) -> syn::Result<proc_macro2::Toke
     }
 }
 
-// VariantAttributes
+/// Генерирует ветку match для метода iterate_inner. Она берет все поля текущего
+/// активного варианта и передает их в специальное замыкание _f, которое строит
+/// таблицу свойств (Property Grid).  
+/// Когда вариант выбран, ниже должна появиться таблица с его полями (например,
+/// если выбран Num { value: usize }, должна появиться строка "value" и поле
+/// ввода числа). Эта функция "скармливает" поля структуре egui-probe, чтобы та
+/// их красиво отрисовала с отступами.
 fn variant_iterate_inner(variant: &syn::Variant) -> syn::Result<proc_macro2::TokenStream> {
     let attributes: VariantAttributes =
         proc_easy::EasyAttributes::parse(&variant.attrs, variant.span())?;
@@ -656,7 +670,7 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
                 .filter_map(|(idx, field)| field_probe(idx, field).transpose())
                 .collect::<syn::Result<_>>()?;
 
-            let egui_probe_impl = if attributes.transparent.is_some() {
+            let mut r#impl = if attributes.transparent.is_some() {
                 if all_fields_probe.len() != 1 {
                     return Err(syn::Error::new_spanned(
                         attributes.transparent.unwrap(),
@@ -733,13 +747,12 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
                         }
                     }
                 };
-                Ok(quote::quote! {
-                    #egui_probe_impl
+                r#impl = quote::quote! {
+                    #r#impl
                     #default_impl
-                })
-            } else {
-                Ok(egui_probe_impl)
+                };
             }
+            Ok(r#impl)
         }
         syn::Data::Enum(data) => {
             if attributes.transparent.is_some() {
