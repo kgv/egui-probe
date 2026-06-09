@@ -1,4 +1,4 @@
-use egui_probe::{Probe, angle};
+use egui_probe::{New, Probe, angle};
 use egui_probe_proc::EguiProbe;
 use std::collections::HashMap;
 
@@ -36,7 +36,7 @@ enum InlinedTags {
 }
 
 #[derive(EguiProbe)]
-#[egui_probe(tags combobox)]
+#[egui_probe(new, tags combobox)]
 enum ComboBoxTags {
     Empty,
     #[egui_probe(new)]
@@ -46,11 +46,11 @@ enum ComboBoxTags {
     },
 }
 
-impl Default for ComboBoxTags {
-    fn default() -> Self {
-        Self::Num { value: 6 }
-    }
-}
+// impl Default for ComboBoxTags {
+//     fn default() -> Self {
+//         Self::Num { value: 6 }
+//     }
+// }
 
 #[derive(Default, EguiProbe)]
 struct InnerValue {
@@ -104,6 +104,7 @@ struct DemoValue {
     inlined_tags: InlinedTags,
 
     // #[egui_probe(new = Default::default())]
+    #[egui_probe(new = ComboBoxTags::new())]
     option_combobox_tags: Option<ComboBoxTags>,
 
     array: [u8; 3],

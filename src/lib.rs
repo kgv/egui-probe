@@ -120,6 +120,11 @@ pub use self::{
     widget::{Probe, ProbeLayout},
 };
 
+/// New
+pub trait New {
+    fn new() -> Self;
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum BooleanStyle {
     Checkbox,
