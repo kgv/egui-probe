@@ -1,7 +1,7 @@
 #![allow(clippy::use_self)]
 
 use self::keywords::{
-    bookmarks, by, combobox, frozen, inlined, multiline, name, new, range, rgb, rgba,
+    bookmarks, by, combobox, default, frozen, inlined, multiline, name, range, rgb, rgba,
     rgba_premultiplied, rgba_unmultiplied, skip, tags, toggle_switch, transparent, with,
 };
 use crate::name_display::NameDisplay as _;
@@ -35,7 +35,7 @@ mod keywords {
     proc_easy::easy_token!(inlined);
     proc_easy::easy_token!(multiline);
     proc_easy::easy_token!(name);
-    proc_easy::easy_token!(new);
+    proc_easy::easy_token!(default);
     proc_easy::easy_token!(range);
     proc_easy::easy_token!(rgb);
     proc_easy::easy_token!(rgba_premultiplied);
@@ -143,8 +143,8 @@ proc_easy::easy_argument! {
 // Argument value
 
 proc_easy::easy_argument_value! {
-    struct New {
-        new: new,
+    struct Default {
+        default: default,
         expr: syn::Expr,
     }
 }
@@ -179,7 +179,7 @@ proc_easy::easy_attributes! {
         bookmarks: Option<Bookmarks>,
         kind: Option<FieldKind>,
         name: Option<Name>,
-        new: Option<New>,
+        default: Option<Default>,
         // If `skip` is present, the field will be skipped.
         // Error will be generated if other attributes are present together with
         // `skip`.
@@ -191,7 +191,6 @@ proc_easy::easy_attributes! {
     @(egui_probe)
     struct TypeAttributes {
         name: Option<Name>,
-        // new: Option<new>,
         tags: Option<EnumTags>,
         transparent: Option<transparent>,
         where_clause: Option<WhereClause>,
@@ -202,7 +201,7 @@ proc_easy::easy_attributes! {
     @(egui_probe)
     struct VariantAttributes {
         name: Option<Name>,
-        default: Option<new>,
+        default: Option<default>,
         transparent: Option<transparent>,
     }
 }
@@ -235,7 +234,7 @@ fn make_name(name: Option<Name>, ident: Option<&syn::Ident>) -> proc_macro2::Tok
 fn field_name(field: &syn::Field) -> syn::Result<Option<proc_macro2::TokenStream>> {
     let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
 
-    validate!(attributes.skip.is_some(); !attributes => [bookmarks, new, kind, name])?;
+    validate!(attributes.skip.is_some(); !attributes => [bookmarks, default, kind, name])?;
 
     let name = make_name(attributes.name, field.ident.as_ref());
 
@@ -254,8 +253,8 @@ fn field_default(field: &syn::Field) -> syn::Result<proc_macro2::TokenStream> {
 fn unnamed_field_default(field: &syn::Field) -> syn::Result<proc_macro2::TokenStream> {
     let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
 
-    let mut expr = match attributes.new {
-        Some(New { expr, .. }) => quote::quote!(#expr),
+    let mut expr = match attributes.default {
+        Some(Default { expr, .. }) => quote::quote!(#expr),
         _ => quote::quote!(::core::default::Default::default()),
     };
     if is_option(&field.ty) {
@@ -267,7 +266,7 @@ fn unnamed_field_default(field: &syn::Field) -> syn::Result<proc_macro2::TokenSt
 fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2::TokenStream>> {
     let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
 
-    validate!(attributes.skip.is_some(); !attributes => [bookmarks, new, kind, name])?;
+    validate!(attributes.skip.is_some(); !attributes => [bookmarks, default, kind, name])?;
 
     let binding = quote::format_ident!("__{}", idx);
 
@@ -430,23 +429,23 @@ fn variant_probe(variant: &syn::Variant) -> syn::Result<proc_macro2::TokenStream
         syn::Fields::Named(_) => quote::quote!(Self::#ident {..}),
     };
 
-    let new_self = match &variant.fields {
+    let default_self = match &variant.fields {
         syn::Fields::Unit => quote::quote!(Self::#ident),
         syn::Fields::Unnamed(fields) => {
-            let new_fields = fields
+            let default_fields = fields
                 .unnamed
                 .iter()
                 .map(field_default)
                 .collect::<syn::Result<Vec<_>>>()?;
-            quote::quote!(Self::#ident ( #(#new_fields,)* ))
+            quote::quote!(Self::#ident ( #(#default_fields,)* ))
         }
         syn::Fields::Named(fields) => {
-            let new_fields = fields
+            let default_fields = fields
                 .named
                 .iter()
                 .map(field_default)
                 .collect::<syn::Result<Vec<_>>>()?;
-            quote::quote!(Self::#ident { #(#new_fields,)* })
+            quote::quote!(Self::#ident { #(#default_fields,)* })
         }
     };
 
@@ -454,7 +453,7 @@ fn variant_probe(variant: &syn::Variant) -> syn::Result<proc_macro2::TokenStream
         #[allow(unreachable_patterns)]
         let checked = match self { #pattern => true, _ => false };
         if _ui.selectable_label(checked, #name).clicked() && !checked {
-            *self = #new_self;
+            *self = #default_self;
         }
         // if _ui.selectable_label(checked, #name).clicked() {
         //     if !checked {
@@ -482,7 +481,7 @@ fn variant_inline_probe(variant: &syn::Variant) -> syn::Result<proc_macro2::Toke
 
     let ident = &variant.ident;
 
-    if attributes.transparent.is_some() {
+    if let Some(transparent) = attributes.transparent {
         let pattern = match variant.fields {
             syn::Fields::Unit => quote::quote!(Self::#ident),
             syn::Fields::Unnamed(ref fields) => {
@@ -512,7 +511,7 @@ fn variant_inline_probe(variant: &syn::Variant) -> syn::Result<proc_macro2::Toke
 
         if all_fields_probe.len() != 1 {
             return Err(syn::Error::new_spanned(
-                attributes.transparent.unwrap(),
+                transparent,
                 "Transparent variant must have exactly one non-skipped field",
             ));
         }
@@ -570,7 +569,7 @@ fn variant_iterate_inner(variant: &syn::Variant) -> syn::Result<proc_macro2::Tok
         }
     };
 
-    if attributes.transparent.is_some() {
+    if let Some(transparent) = attributes.transparent {
         let all_fields_probe: Vec<_> = variant
             .fields
             .iter()
@@ -580,7 +579,7 @@ fn variant_iterate_inner(variant: &syn::Variant) -> syn::Result<proc_macro2::Tok
 
         if all_fields_probe.len() != 1 {
             return Err(syn::Error::new_spanned(
-                attributes.transparent.unwrap(),
+                transparent,
                 "Transparent variant must have exactly one non-skipped field",
             ));
         }
@@ -733,7 +732,7 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
                 .filter_map(|(idx, field)| field_probe(idx, field).transpose())
                 .collect::<syn::Result<_>>()?;
 
-            let mut r#impl = if attributes.transparent.is_some() {
+            let egui_prob_impl = if attributes.transparent.is_some() {
                 if all_fields_probe.len() != 1 {
                     return Err(syn::Error::new_spanned(
                         attributes.transparent.unwrap(),
@@ -792,26 +791,26 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
                 }
             };
 
-            let new_impl = {
-                let new_fields = data
+            let default_impl = {
+                let default_fields = data
                     .fields
                     .iter()
                     .map(field_default)
                     .collect::<syn::Result<Vec<_>>>()?;
-                let new_self = match &data.fields {
-                    syn::Fields::Named(_) => quote::quote!( Self { #(#new_fields),* } ),
-                    syn::Fields::Unnamed(_) => quote::quote!( Self ( #(#new_fields),* ) ),
+                let default_self = match &data.fields {
+                    syn::Fields::Named(_) => quote::quote!( Self { #(#default_fields),* } ),
+                    syn::Fields::Unnamed(_) => quote::quote!( Self ( #(#default_fields),* ) ),
                     syn::Fields::Unit => quote::quote!(Self),
                 };
                 quote::quote! {
-                    impl ::egui_probe::New for #ident #ty_generics #where_clause {
-                        fn new() -> Self { #new_self }
+                    impl ::egui_probe::EguiProbeDefault for #ident #ty_generics #where_clause {
+                        fn default() -> Self { #default_self }
                     }
                 }
             };
             Ok(quote::quote! {
-                #r#impl
-                #new_impl
+                #egui_prob_impl
+                #default_impl
             })
         }
         syn::Data::Enum(data) => {
@@ -903,8 +902,8 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
 
             let variants_default = variants_default(&data.variants)?;
             let default_impl = quote::quote! {
-                impl ::egui_probe::New for #ident #ty_generics #where_clause {
-                    fn new() -> Self { #variants_default }
+                impl ::egui_probe::EguiProbeDefault for #ident #ty_generics #where_clause {
+                    fn default() -> Self { #variants_default }
                 }
             };
 

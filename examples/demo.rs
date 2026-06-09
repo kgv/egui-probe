@@ -1,4 +1,4 @@
-use egui_probe::{New, Probe, angle};
+use egui_probe::{EguiProbeDefault, Probe, angle};
 use egui_probe_proc::EguiProbe;
 use std::collections::HashMap;
 
@@ -28,9 +28,9 @@ struct UpTo7(#[egui_probe(range = ..=7)] u32);
 enum InlinedTags {
     Empty,
     #[egui_probe(transparent)]
-    InlinedFloat(#[egui_probe(new = 999.0)] f32),
+    InlinedFloat(#[egui_probe(default = 999.0)] f32),
     Text {
-        #[egui_probe(new = String::from("FROM"), multiline)]
+        #[egui_probe(default = String::from("FROM"), multiline)]
         text: String,
     },
 }
@@ -38,19 +38,13 @@ enum InlinedTags {
 #[derive(EguiProbe)]
 #[egui_probe(tags combobox)]
 enum ComboBoxTags {
-    // #[egui_probe(new)]
     Empty,
+    #[egui_probe(default)]
     Num {
-        #[egui_probe(range = 2..=9, new = 2)]
+        #[egui_probe(range = 2..=9, default = 2)]
         value: usize,
     },
 }
-
-// impl Default for ComboBoxTags {
-//     fn default() -> Self {
-//         Self::Num { value: 6 }
-//     }
-// }
 
 #[derive(Default, EguiProbe)]
 struct InnerValue {
@@ -73,13 +67,13 @@ struct DemoValue {
     #[egui_probe(range = 22..=55)]
     range: usize,
 
-    #[egui_probe(new = UpTo7(9))]
+    #[egui_probe(default = UpTo7(9))]
     range_to: UpTo7,
 
     #[egui_probe(range = 50..)]
     range_from: u8,
 
-    #[egui_probe(range = 1..=9, new = 9, bookmarks = [2, 3, 4])]
+    #[egui_probe(range = 1..=9, default = 9, bookmarks = [2, 3, 4])]
     range_with_bookmark: u8,
 
     #[egui_probe(as angle)]
@@ -92,18 +86,18 @@ struct DemoValue {
     #[egui_probe(name = "renamed ^_^")]
     renamed: u8,
 
-    // #[egui_probe(new = true)]
+    // #[egui_probe(default = true)]
     maybe_boolean: Option<bool>,
 
     character: char,
 
     inner: InnerValue,
 
-    #[egui_probe(new = InlinedTags::Empty)]
+    #[egui_probe(default = InlinedTags::Empty)]
     inlined_tags: InlinedTags,
 
-    // #[egui_probe(new = Default::default())]
-    #[egui_probe(new = ComboBoxTags::new())]
+    // #[egui_probe(default = EguiProbeDefault::default())]
+    #[egui_probe(default)]
     option_combobox_tags: Option<ComboBoxTags>,
 
     array: [u8; 3],
@@ -129,7 +123,7 @@ impl EguiProbeDemoApp {
         egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
         cc.egui_ctx.set_fonts(fonts);
         EguiProbeDemoApp {
-            value: DemoValue::new(),
+            value: DemoValue::default(),
             // value: DemoValue {
             //     boolean: false,
             //     boolean_toggle: false,

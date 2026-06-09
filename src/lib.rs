@@ -110,19 +110,19 @@ mod ui;
 mod vec;
 mod widget;
 
-pub use egui;
-use egui_phosphor::regular::{MINUS, PLUS};
-
 pub use self::{
     boolean::toggle_switch,
     collections::{DeleteMe, EguiProbeDragAndDrop},
     option::{EguiProbeOption, option_probe_with},
     widget::{Probe, ProbeLayout},
 };
+pub use egui;
 
-/// New
-pub trait New {
-    fn new() -> Self;
+use egui_phosphor::regular::{MINUS, PLUS};
+
+/// Egui probe default
+pub trait EguiProbeDefault {
+    fn default() -> Self;
 }
 
 #[derive(Clone, Copy, Debug)]
