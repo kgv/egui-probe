@@ -28,25 +28,31 @@ struct UpTo7(#[egui_probe(range = ..=7)] u32);
 enum InlinedTags {
     Empty,
     #[egui_probe(transparent)]
-    InlinedFloat(#[egui_probe(default = 999.0)] f32),
+    InlinedFloat(#[egui_probe(new = 999.0)] f32),
     Text {
-        #[egui_probe(default = String::from("FROM"), multiline)]
+        #[egui_probe(new = String::from("FROM"), multiline)]
         text: String,
     },
 }
 
-#[derive(Default, EguiProbe)]
+#[derive(EguiProbe)]
 #[egui_probe(tags combobox)]
 enum ComboBoxTags {
-    #[default]
     Empty,
+    #[egui_probe(new)]
     Num {
-        #[egui_probe(default = 2, range = 2..=9)]
+        #[egui_probe(range = 2..=9, new = 2)]
         value: usize,
     },
 }
 
-#[derive(EguiProbe)]
+impl Default for ComboBoxTags {
+    fn default() -> Self {
+        Self::Num { value: 6 }
+    }
+}
+
+#[derive(Default, EguiProbe)]
 struct InnerValue {
     line: String,
 
@@ -55,7 +61,7 @@ struct InnerValue {
 }
 
 #[derive(EguiProbe)]
-#[egui_probe(default)]
+#[egui_probe(new)]
 struct DemoValue {
     boolean: bool,
 
@@ -68,12 +74,13 @@ struct DemoValue {
     #[egui_probe(range = 22..=55)]
     range: usize,
 
+    #[egui_probe(new = UpTo7(9))]
     range_to: UpTo7,
 
     #[egui_probe(range = 50..)]
     range_from: u8,
 
-    #[egui_probe(range = 1..=9, default = 9, bookmarks = [2, 3, 4])]
+    #[egui_probe(range = 1..=9, new = 9, bookmarks = [2, 3, 4])]
     range_with_bookmark: u8,
 
     #[egui_probe(as angle)]
@@ -86,16 +93,17 @@ struct DemoValue {
     #[egui_probe(name = "renamed ^_^")]
     renamed: u8,
 
+    // #[egui_probe(new = true)]
     maybe_boolean: Option<bool>,
 
     character: char,
 
     inner: InnerValue,
 
-    // #[egui_probe(default = InlinedTags::Empty)]
+    #[egui_probe(new = InlinedTags::Empty)]
     inlined_tags: InlinedTags,
 
-    #[egui_probe(default = Some(ComboBoxTags::Num { value: 9 }))]
+    // #[egui_probe(new = Default::default())]
     option_combobox_tags: Option<ComboBoxTags>,
 
     array: [u8; 3],
@@ -121,44 +129,44 @@ impl EguiProbeDemoApp {
         egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
         cc.egui_ctx.set_fonts(fonts);
         EguiProbeDemoApp {
-            // value: DemoValue::default(),
-            value: DemoValue {
-                boolean: false,
-                boolean_toggle: false,
-                float: 0.0,
-                range: 22,
-                range_to: UpTo7(0),
-                range_from: 100,
-                range_with_bookmark: 2,
-                angle: 0.0,
-                custom: Foo,
-                renamed: 0,
-                maybe_boolean: None,
-                character: 'a',
-                inner: InnerValue {
-                    line: "Hello, world!".to_owned(),
-                    multi_line: "Hello,\nworld!".to_owned(),
-                },
-                inlined_tags: InlinedTags::Empty,
-                option_combobox_tags: None,
-                array: [0, 1, 2],
-                vector: vec![false, true, false],
-                frozen_vector: vec![false, true, false],
+            value: DemoValue::new(),
+            // value: DemoValue {
+            //     boolean: false,
+            //     boolean_toggle: false,
+            //     float: 0.0,
+            //     range: 22,
+            //     range_to: UpTo7(0),
+            //     range_from: 100,
+            //     range_with_bookmark: 2,
+            //     angle: 0.0,
+            //     custom: Foo,
+            //     renamed: 0,
+            //     maybe_boolean: None,
+            //     character: 'a',
+            //     inner: InnerValue {
+            //         line: "Hello, world!".to_owned(),
+            //         multi_line: "Hello,\nworld!".to_owned(),
+            //     },
+            //     inlined_tags: InlinedTags::Empty,
+            //     option_combobox_tags: None,
+            //     array: [0, 1, 2],
+            //     vector: vec![false, true, false],
+            //     frozen_vector: vec![false, true, false],
 
-                map: {
-                    let mut map = HashMap::new();
-                    map.insert("foo".to_owned(), 1);
-                    map.insert("bar".to_owned(), 2);
-                    map
-                },
+            //     map: {
+            //         let mut map = HashMap::new();
+            //         map.insert("foo".to_owned(), 1);
+            //         map.insert("bar".to_owned(), 2);
+            //         map
+            //     },
 
-                frozen_map: {
-                    let mut map = HashMap::new();
-                    map.insert("foo".to_owned(), 1);
-                    map.insert("bar".to_owned(), 2);
-                    map
-                },
-            },
+            //     frozen_map: {
+            //         let mut map = HashMap::new();
+            //         map.insert("foo".to_owned(), 1);
+            //         map.insert("bar".to_owned(), 2);
+            //         map
+            //     },
+            // },
         }
     }
 }

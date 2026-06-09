@@ -1,27 +1,71 @@
 use crate::{EguiProbe, Style};
 
-impl<T> EguiProbe for Option<T>
+pub struct EguiProbeOption<'a, T, F> {
+    pub value: &'a mut Option<T>,
+    pub default: F,
+}
+
+impl<'a, T, F> EguiProbe for EguiProbeOption<'a, T, F>
 where
-    T: EguiProbe + Default,
+    T: EguiProbe,
+    F: FnMut() -> Option<T>,
 {
-    #[inline(always)]
     fn probe(&mut self, ui: &mut egui::Ui, style: &Style) -> egui::Response {
-        option_probe_with(self, ui, style, T::default, |value, ui, style| {
-            value.probe(ui, style)
+        ui.horizontal(|ui| {
+            let mut checked = self.value.is_some();
+            let mut response = ui.checkbox(&mut checked, "");
+
+            if response.clicked() {
+                if checked {
+                    *self.value = (self.default)();
+                } else {
+                    *self.value = None;
+                }
+                response.mark_changed();
+            }
+
+            if let Some(value) = self.value.as_mut() {
+                response |= value.probe(ui, style);
+            }
+
+            response
         })
+        .inner
     }
 
-    #[inline(always)]
     fn iterate_inner(
         &mut self,
         ui: &mut egui::Ui,
         f: &mut dyn FnMut(&str, &mut egui::Ui, &mut dyn EguiProbe),
     ) {
-        if let Some(value) = self {
+        if let Some(value) = self.value.as_mut() {
             value.iterate_inner(ui, f);
         }
     }
 }
+
+// impl<T> EguiProbe for Option<T>
+// where
+//     T: EguiProbe + Default,
+// {
+//     #[inline(always)]
+//     fn probe(&mut self, ui: &mut egui::Ui, style: &Style) -> egui::Response {
+//         option_probe_with(self, ui, style, T::default, |value, ui, style| {
+//             value.probe(ui, style)
+//         })
+//     }
+//
+//     #[inline(always)]
+//     fn iterate_inner(
+//         &mut self,
+//         ui: &mut egui::Ui,
+//         f: &mut dyn FnMut(&str, &mut egui::Ui, &mut dyn EguiProbe),
+//     ) {
+//         if let Some(value) = self {
+//             value.iterate_inner(ui, f);
+//         }
+//     }
+// }
 
 #[inline(always)]
 pub fn option_probe_with<T>(

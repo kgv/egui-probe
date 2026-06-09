@@ -1,7 +1,7 @@
 #![allow(clippy::use_self)]
 
 use self::keywords::{
-    bookmarks, by, combobox, default, frozen, inlined, multiline, name, range, rgb, rgba,
+    bookmarks, by, combobox, frozen, inlined, multiline, name, new, range, rgb, rgba,
     rgba_premultiplied, rgba_unmultiplied, skip, tags, toggle_switch, transparent, with,
 };
 use crate::name_display::NameDisplay as _;
@@ -31,11 +31,11 @@ mod keywords {
     proc_easy::easy_token!(bookmarks);
     proc_easy::easy_token!(by);
     proc_easy::easy_token!(combobox);
-    proc_easy::easy_token!(default);
     proc_easy::easy_token!(frozen);
     proc_easy::easy_token!(inlined);
     proc_easy::easy_token!(multiline);
     proc_easy::easy_token!(name);
+    proc_easy::easy_token!(new);
     proc_easy::easy_token!(range);
     proc_easy::easy_token!(rgb);
     proc_easy::easy_token!(rgba_premultiplied);
@@ -143,24 +143,11 @@ proc_easy::easy_argument! {
 // Argument value
 
 proc_easy::easy_argument_value! {
-    struct Default {
-        default: default,
+    struct New {
+        new: new,
         expr: syn::Expr,
     }
 }
-
-// impl Parse for Default {
-//     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-//         let default = input.parse()?;
-//         let expr = if input.peek(syn::Token![=]) {
-//             let _eq: syn::Token![=] = input.parse()?;
-//             Some(input.parse()?)
-//         } else {
-//             None
-//         };
-//         Ok(Self { default, expr })
-//     }
-// }
 
 proc_easy::easy_argument_value! {
     struct Bookmarks {
@@ -190,9 +177,9 @@ proc_easy::easy_attributes! {
     @(egui_probe)
     struct FieldAttributes {
         bookmarks: Option<Bookmarks>,
-        default: Option<Default>,
         kind: Option<FieldKind>,
         name: Option<Name>,
+        new: Option<New>,
         // If `skip` is present, the field will be skipped.
         // Error will be generated if other attributes are present together with
         // `skip`.
@@ -203,8 +190,8 @@ proc_easy::easy_attributes! {
 proc_easy::easy_attributes! {
     @(egui_probe)
     struct TypeAttributes {
-        default: Option<Default>,
         name: Option<Name>,
+        new: Option<new>,
         tags: Option<EnumTags>,
         transparent: Option<transparent>,
         where_clause: Option<WhereClause>,
@@ -215,8 +202,18 @@ proc_easy::easy_attributes! {
     @(egui_probe)
     struct VariantAttributes {
         name: Option<Name>,
+        new: Option<new>,
         transparent: Option<transparent>,
     }
+}
+
+fn is_option(ty: &syn::Type) -> bool {
+    if let syn::Type::Path(type_path) = ty {
+        if let Some(segment) = type_path.path.segments.last() {
+            return segment.ident == "Option";
+        }
+    }
+    false
 }
 
 fn make_name(name: Option<Name>, ident: Option<&syn::Ident>) -> proc_macro2::TokenStream {
@@ -238,7 +235,7 @@ fn make_name(name: Option<Name>, ident: Option<&syn::Ident>) -> proc_macro2::Tok
 fn field_name(field: &syn::Field) -> syn::Result<Option<proc_macro2::TokenStream>> {
     let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
 
-    validate!(attributes.skip.is_some(); !attributes => [bookmarks, default, kind, name])?;
+    validate!(attributes.skip.is_some(); !attributes => [bookmarks, new, kind, name])?;
 
     let name = make_name(attributes.name, field.ident.as_ref());
 
@@ -246,12 +243,7 @@ fn field_name(field: &syn::Field) -> syn::Result<Option<proc_macro2::TokenStream
 }
 
 fn field_default(field: &syn::Field) -> syn::Result<proc_macro2::TokenStream> {
-    let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
-
-    let expr = match attributes.default {
-        Some(Default { expr, .. }) => quote::quote!(#expr),
-        _ => quote::quote!(::core::default::Default::default()),
-    };
+    let expr = unnamed_field_default(field)?;
 
     Ok(match &field.ident {
         Some(ident) => quote::quote!(#ident: #expr),
@@ -259,17 +251,37 @@ fn field_default(field: &syn::Field) -> syn::Result<proc_macro2::TokenStream> {
     })
 }
 
+fn unnamed_field_default(field: &syn::Field) -> syn::Result<proc_macro2::TokenStream> {
+    let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
+
+    let mut expr = match attributes.new {
+        Some(New { expr, .. }) => quote::quote!(#expr),
+        _ => quote::quote!(::core::default::Default::default()),
+    };
+    if is_option(&field.ty) {
+        expr = quote::quote!(::core::option::Option::Some(#expr));
+    }
+    Ok(expr)
+}
+
 fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2::TokenStream>> {
     let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
 
-    validate!(attributes.skip.is_some(); !attributes => [bookmarks, default, kind, name])?;
+    validate!(attributes.skip.is_some(); !attributes => [bookmarks, new, kind, name])?;
 
-    let binding = quote::format_ident!("___{}", idx);
+    let binding = quote::format_ident!("__{}", idx);
 
     let mut tokens = match attributes.kind {
         None => {
-            quote::quote_spanned! {field.span() =>
-                #binding
+            if is_option(&field.ty) {
+                let default = unnamed_field_default(field)?;
+                quote::quote_spanned! {field.span() =>
+                    &mut probe_option(#binding, || #default)
+                }
+            } else {
+                quote::quote_spanned! {field.span() =>
+                    #binding
+                }
             }
         }
         Some(FieldKind::With(with)) => {
@@ -418,28 +430,23 @@ fn variant_probe(variant: &syn::Variant) -> syn::Result<proc_macro2::TokenStream
         syn::Fields::Named(_) => quote::quote!(Self::#ident {..}),
     };
 
-    // let default = match attributes.default {
-    //     Some(Default { expr, .. }) => quote::quote!(#expr),
-    //     _ => quote::quote!(::core::default::Default::default()),
-    // };
-
-    let default = match &variant.fields {
+    let new_self = match &variant.fields {
         syn::Fields::Unit => quote::quote!(Self::#ident),
         syn::Fields::Unnamed(fields) => {
-            let default_fields = fields
+            let new_fields = fields
                 .unnamed
                 .iter()
                 .map(field_default)
                 .collect::<syn::Result<Vec<_>>>()?;
-            quote::quote! {Self::#ident ( #(#default_fields,)* )}
+            quote::quote! {Self::#ident ( #(#new_fields,)* )}
         }
         syn::Fields::Named(fields) => {
-            let default_fields = fields
+            let new_fields = fields
                 .named
                 .iter()
                 .map(field_default)
                 .collect::<syn::Result<Vec<_>>>()?;
-            quote::quote! {Self::#ident { #(#default_fields,)* }}
+            quote::quote! {Self::#ident { #(#new_fields,)* }}
         }
     };
 
@@ -447,7 +454,7 @@ fn variant_probe(variant: &syn::Variant) -> syn::Result<proc_macro2::TokenStream
         #[allow(unreachable_patterns)]
         let checked = match self { #pattern => true, _ => false };
         if _ui.selectable_label(checked, #name).clicked() && !checked {
-            *self = #default;
+            *self = #new_self;
         }
         // if _ui.selectable_label(checked, #name).clicked() {
         //     if !checked {
@@ -483,12 +490,12 @@ fn variant_inline_probe(variant: &syn::Variant) -> syn::Result<proc_macro2::Toke
                     .unnamed
                     .iter()
                     .enumerate()
-                    .map(|(idx, _)| quote::format_ident!("___{}", idx));
+                    .map(|(idx, _)| quote::format_ident!("__{}", idx));
                 quote::quote! {Self::#ident ( #(#fields,)* )}
             }
             syn::Fields::Named(ref fields) => {
                 let fields = fields.named.iter().enumerate().map(|(idx, field)| {
-                    let binding = quote::format_ident!("___{}", idx);
+                    let binding = quote::format_ident!("__{}", idx);
                     let ident = field.ident.as_ref().unwrap();
                     quote::quote!(#ident: #binding)
                 });
@@ -550,12 +557,12 @@ fn variant_iterate_inner(variant: &syn::Variant) -> syn::Result<proc_macro2::Tok
                 .unnamed
                 .iter()
                 .enumerate()
-                .map(|(idx, _)| quote::format_ident!("___{}", idx));
+                .map(|(idx, _)| quote::format_ident!("__{}", idx));
             quote::quote! {Self::#ident ( #(#fields,)* )}
         }
         syn::Fields::Named(ref fields) => {
             let fields = fields.named.iter().enumerate().map(|(idx, field)| {
-                let binding = quote::format_ident!("___{}", idx);
+                let binding = quote::format_ident!("__{}", idx);
                 let ident = field.ident.as_ref().unwrap();
                 quote::quote!(#ident: #binding)
             });
@@ -650,12 +657,12 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
                         .unnamed
                         .iter()
                         .enumerate()
-                        .map(|(idx, _)| quote::format_ident!("___{}", idx));
+                        .map(|(idx, _)| quote::format_ident!("__{}", idx));
                     quote::quote! {Self ( #(#fields,)* )}
                 }
                 syn::Fields::Named(ref fields) => {
                     let fields = fields.named.iter().enumerate().map(|(idx, field)| {
-                        let binding = quote::format_ident!("___{}", idx);
+                        let binding = quote::format_ident!("__{}", idx);
                         let ident = field.ident.as_ref().unwrap();
                         quote::quote!(#ident: #binding)
                     });
@@ -729,27 +736,27 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
                 }
             };
 
-            if attributes.default.is_some() {
-                let default_impl = {
-                    let default_fields = data
+            if attributes.new.is_some() {
+                let new_impl = {
+                    let new_fields = data
                         .fields
                         .iter()
                         .map(field_default)
                         .collect::<syn::Result<Vec<_>>>()?;
-                    let default_self = match &data.fields {
-                        syn::Fields::Named(_) => quote::quote! { Self { #(#default_fields),* } },
-                        syn::Fields::Unnamed(_) => quote::quote! { Self ( #(#default_fields),* ) },
+                    let new_self = match &data.fields {
+                        syn::Fields::Named(_) => quote::quote! { Self { #(#new_fields),* } },
+                        syn::Fields::Unnamed(_) => quote::quote! { Self ( #(#new_fields),* ) },
                         syn::Fields::Unit => quote::quote! { Self },
                     };
                     quote::quote! {
-                        impl #impl_generics ::core::default::Default for #ident #ty_generics #where_clause {
-                            fn default() -> Self { #default_self }
+                        impl #ident #ty_generics #where_clause {
+                            pub fn new() -> Self { #new_self }
                         }
                     }
                 };
                 r#impl = quote::quote! {
                     #r#impl
-                    #default_impl
+                    #new_impl
                 };
             }
             Ok(r#impl)

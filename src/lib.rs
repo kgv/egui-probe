@@ -116,7 +116,7 @@ use egui_phosphor::regular::{MINUS, PLUS};
 pub use self::{
     boolean::toggle_switch,
     collections::{DeleteMe, EguiProbeDragAndDrop},
-    option::option_probe_with,
+    option::{EguiProbeOption, option_probe_with},
     widget::{Probe, ProbeLayout},
 };
 
@@ -264,10 +264,8 @@ pub fn angle(value: &mut f32) -> impl EguiProbe + '_ {
 }
 
 pub mod customize {
-    use std::ops::RangeFull;
-
     use super::{
-        EguiProbe, Style,
+        EguiProbe, EguiProbeOption, Style,
         boolean::ToggleSwitch,
         collections::EguiProbeFrozen,
         color::{
@@ -278,6 +276,16 @@ pub mod customize {
         probe_fn,
         text::EguiProbeMultiline,
     };
+    use std::ops::RangeFull;
+
+    #[inline(always)]
+    pub fn probe_option<'a, T, F>(value: &'a mut Option<T>, default: F) -> EguiProbeOption<'a, T, F>
+    where
+        T: crate::EguiProbe,
+        F: FnMut() -> Option<T>,
+    {
+        EguiProbeOption { value, default }
+    }
 
     #[inline(always)]
     pub fn probe_with<'a, T, F>(mut f: F, value: &'a mut T) -> impl EguiProbe + 'a
