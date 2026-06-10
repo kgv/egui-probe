@@ -195,6 +195,7 @@ proc_easy::easy_attributes! {
         kind: Option<FieldKind>,
         name: Option<Name>,
         default: Option<Default>,
+        tags: Option<EnumTags>,
         // If `skip` is present, the field will be skipped.
         // Error will be generated if other attributes are present together with
         // `skip`.
@@ -250,7 +251,16 @@ fn field_name(field: &syn::Field) -> syn::Result<Option<proc_macro2::TokenStream
 fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2::TokenStream>> {
     let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
 
-    validate!(attributes.skip.is_some(); !attributes => [bookmarks, default, kind, name])?;
+    validate!(attributes.skip.is_some(); !attributes => [bookmarks, default, kind, name, tags])?;
+
+    if let Some(tags) = &attributes.tags {
+        if attributes.kind.is_some() {
+            return Err(syn::Error::new_spanned(
+                tags.tags,
+                "Field-level tags cannot be combined with other field kinds",
+            ));
+        }
+    }
 
     let binding = quote::format_ident!("__{}", idx);
 
@@ -337,6 +347,38 @@ fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2
             }
         }
     };
+
+    if let Some(tags) = attributes.tags {
+        let variants_style = match tags.kind {
+            TagsKind::Inlined(_) => quote::quote!(::egui_probe::VariantsStyle::Inlined),
+            TagsKind::ComboBox(_) => quote::quote!(::egui_probe::VariantsStyle::ComboBox),
+        };
+
+        if is_option(&field.ty) {
+            let default = default_unnamed_field(field)?;
+            tokens = quote::quote_spanned! {field.span() =>
+                &mut ::egui_probe::customize::probe_with(|#binding, ui, style| {
+                    let mut style = *style;
+                    style.variants = #variants_style;
+                    ::egui_probe::option_probe_with(
+                        #binding,
+                        ui,
+                        &style,
+                        || #default,
+                        |value, ui, style| value.probe(ui, style),
+                    )
+                }, #binding)
+            };
+        } else {
+            tokens = quote::quote_spanned! {field.span() =>
+                &mut ::egui_probe::customize::probe_with(|#binding, ui, style| {
+                    let mut style = *style;
+                    style.variants = #variants_style;
+                    #binding.probe(ui, &style)
+                }, #binding)
+            };
+        }
+    }
 
     if let Some(bookmarks) = attributes.bookmarks {
         let buttons = bookmarks.expr.elems.iter().map(|expr| {

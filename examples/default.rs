@@ -52,7 +52,7 @@ struct DemoValue {
 
     // #[egui_probe(default = false)]
     maybe_boolean1: Option<bool>,
-    #[egui_probe(default = true)]
+    #[egui_probe(tags inlined, default = true)]
     maybe_boolean2: Option<bool>,
 
     // #[egui_probe(default = InlinedTags::InlinedFloat(4.9))]
