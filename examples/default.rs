@@ -48,6 +48,7 @@ struct DemoValue {
     float32: f32,
 
     // #[egui_probe(default = 1)]
+    #[egui_probe(tags inlined)]
     u8: u8,
 
     // #[egui_probe(default = false)]

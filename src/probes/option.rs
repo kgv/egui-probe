@@ -45,21 +45,35 @@ pub fn option_probe_with<T>(
         .horizontal(|ui| {
             let mut checked = value.is_some();
             // ui.checkbox(&mut checked, ());
-            let selected_text = match value {
-                None => "Disable",
-                Some(_) => "Enable",
-            };
-            ComboBox::from_id_salt(ui.make_persistent_id("ComboBox"))
-                .width(ui.style().spacing.combo_width / 2.0)
-                .selected_text(selected_text)
-                .show_ui(ui, |ui| {
-                    if ui.selectable_label(!checked, "Disable").clicked() {
-                        checked = false;
-                    }
-                    if ui.selectable_label(checked, "Enable").clicked() {
-                        checked = true;
-                    }
-                });
+            match style.variants {
+                crate::style::VariantsStyle::ComboBox => {
+                    let selected_text = match value {
+                        None => "Disable",
+                        Some(_) => "Enable",
+                    };
+                    ComboBox::from_id_salt(ui.make_persistent_id("ComboBox"))
+                        .width(ui.style().spacing.combo_width / 2.0)
+                        .selected_text(selected_text)
+                        .show_ui(ui, |ui| {
+                            if ui.selectable_label(!checked, "Disable").clicked() {
+                                checked = false;
+                            }
+                            if ui.selectable_label(checked, "Enable").clicked() {
+                                checked = true;
+                            }
+                        });
+                }
+                crate::style::VariantsStyle::Inlined => {
+                    ui.horizontal(|ui| {
+                        if ui.selectable_label(!checked, "Disable").clicked() {
+                            checked = false;
+                        }
+                        if ui.selectable_label(checked, "Enable").clicked() {
+                            checked = true;
+                        }
+                    });
+                }
+            }
 
             match (checked, value.is_some()) {
                 (true, false) => {
