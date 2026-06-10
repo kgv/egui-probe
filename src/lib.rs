@@ -100,6 +100,7 @@ mod default;
 mod probes;
 mod style;
 mod ui;
+mod widget;
 
 pub use self::{
     default::ProbeDefault,
@@ -107,9 +108,9 @@ pub use self::{
         boolean::toggle_switch,
         collections::{DeleteMe, EguiProbeDragAndDrop},
         option::{EguiProbeOption, option_probe_with},
-        widget::{Probe, ProbeLayout},
     },
     style::{BooleanStyle, Style, VariantsStyle},
+    widget::{Probe, ProbeLayout},
 };
 pub use egui;
 
@@ -213,8 +214,8 @@ pub mod customize {
     #[inline(always)]
     pub fn probe_option<'a, T, F>(value: &'a mut Option<T>, default: F) -> EguiProbeOption<'a, T, F>
     where
-        T: crate::EguiProbe,
-        F: FnMut() -> Option<T>,
+        T: EguiProbe,
+        F: FnMut() -> T,
     {
         EguiProbeOption { value, default }
     }

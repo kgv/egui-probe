@@ -1,4 +1,4 @@
-use egui_probe::{ProbeDefault, Probe, angle};
+use egui_probe::{Probe, ProbeDefault, angle};
 use egui_probe_proc::EguiProbe;
 use std::collections::HashMap;
 
@@ -86,7 +86,7 @@ struct DemoValue {
     #[egui_probe(name = "renamed ^_^")]
     renamed: u8,
 
-    // #[egui_probe(default = true)]
+    #[egui_probe(default = true)]
     maybe_boolean: Option<bool>,
 
     character: char,
@@ -94,11 +94,8 @@ struct DemoValue {
     inner: InnerValue,
 
     #[egui_probe(default)]
-    // #[egui_probe(default = EguiProbeDefault::default())]
-    // #[egui_probe(default = InlinedTags::InlinedFloat(4.9))]
     inlined_tags: InlinedTags,
 
-    // The same as #[egui_probe(default = EguiProbeDefault::default())]
     #[egui_probe(default)]
     option_combobox_tags: Option<ComboBoxTags>,
 
@@ -125,44 +122,44 @@ impl EguiProbeDemoApp {
         egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
         cc.egui_ctx.set_fonts(fonts);
         EguiProbeDemoApp {
-            value: DemoValue::default(),
-            // value: DemoValue {
-            //     boolean: false,
-            //     boolean_toggle: false,
-            //     float: 0.0,
-            //     range: 22,
-            //     range_to: UpTo7(0),
-            //     range_from: 100,
-            //     range_with_bookmark: 2,
-            //     angle: 0.0,
-            //     custom: Foo,
-            //     renamed: 0,
-            //     maybe_boolean: None,
-            //     character: 'a',
-            //     inner: InnerValue {
-            //         line: "Hello, world!".to_owned(),
-            //         multi_line: "Hello,\nworld!".to_owned(),
-            //     },
-            //     inlined_tags: InlinedTags::Empty,
-            //     option_combobox_tags: None,
-            //     array: [0, 1, 2],
-            //     vector: vec![false, true, false],
-            //     frozen_vector: vec![false, true, false],
+            // value: DemoValue::default(),
+            value: DemoValue {
+                boolean: false,
+                boolean_toggle: false,
+                float: 0.0,
+                range: 22,
+                range_to: UpTo7(0),
+                range_from: 100,
+                range_with_bookmark: 2,
+                angle: 0.0,
+                custom: Foo,
+                renamed: 0,
+                maybe_boolean: None,
+                character: 'a',
+                inner: InnerValue {
+                    line: "Hello, world!".to_owned(),
+                    multi_line: "Hello,\nworld!".to_owned(),
+                },
+                inlined_tags: InlinedTags::Empty,
+                option_combobox_tags: None,
+                array: [0, 1, 2],
+                vector: vec![false, true, false],
+                frozen_vector: vec![false, true, false],
 
-            //     map: {
-            //         let mut map = HashMap::new();
-            //         map.insert("foo".to_owned(), 1);
-            //         map.insert("bar".to_owned(), 2);
-            //         map
-            //     },
+                map: {
+                    let mut map = HashMap::new();
+                    map.insert("foo".to_owned(), 1);
+                    map.insert("bar".to_owned(), 2);
+                    map
+                },
 
-            //     frozen_map: {
-            //         let mut map = HashMap::new();
-            //         map.insert("foo".to_owned(), 1);
-            //         map.insert("bar".to_owned(), 2);
-            //         map
-            //     },
-            // },
+                frozen_map: {
+                    let mut map = HashMap::new();
+                    map.insert("foo".to_owned(), 1);
+                    map.insert("bar".to_owned(), 2);
+                    map
+                },
+            },
         }
     }
 }

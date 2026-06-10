@@ -15,10 +15,10 @@ fn main() {
 #[egui_probe(transparent)]
 struct UpTo7(#[egui_probe(range = ..=7)] u32);
 
-#[derive(Default, EguiProbe)]
+#[derive(EguiProbe)]
 #[egui_probe(tags inlined)]
 enum InlinedTags {
-    #[default]
+    // #[default]
     Empty,
     #[egui_probe(transparent)]
     InlinedFloat(#[egui_probe(default = 999.0)] f32),
@@ -39,7 +39,7 @@ enum ComboBoxTags {
     },
 }
 
-#[derive(Default, EguiProbe)]
+#[derive(EguiProbe)]
 struct DemoValue {
     // #[egui_probe(default = true)]
     boolean: bool,
@@ -55,13 +55,13 @@ struct DemoValue {
     #[egui_probe(default = true)]
     maybe_boolean2: Option<bool>,
 
-    // #[egui_probe(default = EguiProbeDefault::default())]
     // #[egui_probe(default = InlinedTags::InlinedFloat(4.9))]
-    // #[egui_probe(default)]
+    // #[egui_probe(default = ProbeDefault::probe_default())]
+    #[egui_probe(default)]
     inlined_tags: InlinedTags,
-    // The same as #[egui_probe(default = ProbeDefault::probe_default())]
+    // #[egui_probe(default = ProbeDefault::probe_default())]
     // #[egui_probe(default)]
-    option_combobox_tags: Option<ComboBoxTags>,
+    // option_combobox_tags: Option<ComboBoxTags>,
     //
     // #[egui_probe(with custom_probe)]
     // custom: Foo,
@@ -100,13 +100,16 @@ impl EguiProbeDemoApp {
         egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
         cc.egui_ctx.set_fonts(fonts);
         EguiProbeDemoApp {
-            value: Default::default(),
-            // value: DemoValue {
-            //     boolean: false,
-            //     boolean_toggle: false,
-            //     float: 0.0,
-            //     range: 22,
-            // },
+            // value: Default::default(),
+            value: DemoValue {
+                boolean: true,
+                float32: 1.0,
+                u8: 1,
+                maybe_boolean1: None,
+                maybe_boolean2: None,
+                inlined_tags: InlinedTags::Empty,
+                // option_combobox_tags: None,
+            },
         }
     }
 }
