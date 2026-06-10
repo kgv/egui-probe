@@ -357,22 +357,25 @@ fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2
             let default = default_unnamed_field(field)?;
             tokens = quote::quote_spanned! {field.span() =>
                 &mut ::egui_probe::customize::probe_with(|#binding, ui, style| {
-                    let mut style = *style;
-                    style.variants = #variants_style;
                     ::egui_probe::option_probe_with(
                         #binding,
                         ui,
-                        &style,
+                        &::egui_probe::Style {
+                            variants: #variants_style,
+                            ..*style
+                        },
                         || #default,
-                        |value, ui, style| value.probe(ui, style),
+                        |value, ui, _| value.probe(ui, style),
                     )
                 }, #binding)
             };
         } else {
             tokens = quote::quote_spanned! {field.span() =>
                 &mut ::egui_probe::customize::probe_with(|#binding, ui, style| {
-                    let mut style = *style;
-                    style.variants = #variants_style;
+                    let style = ::egui_probe::Style {
+                        variants: #variants_style,
+                        ..*style
+                    };
                     #binding.probe(ui, &style)
                 }, #binding)
             };
@@ -758,10 +761,10 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
 
     match input.data {
         syn::Data::Struct(data) => {
-            if let Some(enum_kind) = attributes.r#enum {
+            if let Some(r#enum) = attributes.r#enum {
                 return Err(syn::Error::new(
-                    enum_kind.name_span(),
-                    "Tags may be specified only for enums",
+                    r#enum.name_span(),
+                    "`enum` may be specified only for enums",
                 ));
             }
 
