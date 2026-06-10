@@ -191,6 +191,38 @@ pub const fn probe_fn<F>(f: F) -> EguiProbeFn<F> {
     EguiProbeFn(f)
 }
 
+#[derive(Clone, Copy)]
+pub struct EguiProbeFnWithInner<F, G>(pub F, pub G);
+
+impl<F, G> EguiProbe for EguiProbeFnWithInner<F, G>
+where
+    F: FnMut(&mut egui::Ui, &Style) -> egui::Response,
+    G: FnMut(&mut egui::Ui, &mut dyn FnMut(&str, &mut egui::Ui, &mut dyn EguiProbe)),
+{
+    #[inline(always)]
+    fn probe(&mut self, ui: &mut egui::Ui, style: &Style) -> egui::Response {
+        (self.0)(ui, style)
+    }
+
+    #[inline(always)]
+    fn iterate_inner(
+        &mut self,
+        ui: &mut egui::Ui,
+        f: &mut dyn FnMut(&str, &mut egui::Ui, &mut dyn EguiProbe),
+    ) {
+        (self.1)(ui, f)
+    }
+}
+
+#[inline(always)]
+pub fn probe_fn_with_inner<F, G>(f: F, g: G) -> EguiProbeFnWithInner<F, G>
+where
+    F: FnMut(&mut egui::Ui, &Style) -> egui::Response,
+    G: FnMut(&mut egui::Ui, &mut dyn FnMut(&str, &mut egui::Ui, &mut dyn EguiProbe)),
+{
+    EguiProbeFnWithInner(f, g)
+}
+
 #[inline(always)]
 pub fn angle(value: &mut f32) -> impl EguiProbe + '_ {
     probe_fn(move |ui: &mut egui::Ui, _style: &Style| ui.drag_angle(value))
@@ -198,7 +230,7 @@ pub fn angle(value: &mut f32) -> impl EguiProbe + '_ {
 
 pub mod customize {
     use super::{
-        EguiProbe, EguiProbeOption, Style, egui, probe_fn,
+        EguiProbe, EguiProbeOption, Style, egui, probe_fn, probe_fn_with_inner,
         probes::{
             boolean::ToggleSwitch,
             collections::EguiProbeFrozen,
@@ -232,6 +264,27 @@ pub mod customize {
         F: FnMut(&mut T, &mut egui::Ui, &Style) -> egui::Response + 'a,
     {
         probe_fn(move |ui: &mut egui::Ui, style: &Style| f(value, ui, style))
+    }
+
+    #[inline(always)]
+    pub fn probe_with_inner<'a, T, F, G>(
+        mut f: F,
+        mut iterate_inner: G,
+        value: &'a mut T,
+    ) -> impl EguiProbe + 'a
+    where
+        F: FnMut(&mut T, &mut egui::Ui, &Style) -> egui::Response + 'a,
+        G: FnMut(
+            &mut T,
+            &mut egui::Ui,
+            &mut dyn FnMut(&str, &mut egui::Ui, &mut dyn EguiProbe),
+        ) + 'a,
+    {
+        let value_ptr = value as *mut T;
+        probe_fn_with_inner(
+            move |ui: &mut egui::Ui, style: &Style| unsafe { f(&mut *value_ptr, ui, style) },
+            move |ui, f| unsafe { iterate_inner(&mut *value_ptr, ui, f) },
+        )
     }
 
     #[inline(always)]

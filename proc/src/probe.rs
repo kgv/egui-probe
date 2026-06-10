@@ -356,18 +356,25 @@ fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2
         if is_option(&field.ty) {
             let default = default_unnamed_field(field)?;
             tokens = quote::quote_spanned! {field.span() =>
-                &mut ::egui_probe::customize::probe_with(|#binding, ui, style| {
-                    ::egui_probe::option_probe_with(
-                        #binding,
-                        ui,
-                        &::egui_probe::Style {
-                            variants: #variants_style,
-                            ..*style
-                        },
-                        || #default,
-                        |value, ui, _| value.probe(ui, style),
-                    )
-                }, #binding)
+                &mut ::egui_probe::customize::probe_with_inner(
+                    |#binding, ui, style| {
+                        let mut style2 = *style;
+                        style2.variants = #variants_style;
+                        ::egui_probe::option_probe_with(
+                            #binding,
+                            ui,
+                            &style2,
+                            || #default,
+                            |value, ui, _| value.probe(ui, style),
+                        )
+                    },
+                    |#binding, ui, f| {
+                        if let Some(value) = #binding.as_mut() {
+                            value.iterate_inner(ui, f);
+                        }
+                    },
+                    #binding,
+                )
             };
         } else {
             tokens = quote::quote_spanned! {field.span() =>
