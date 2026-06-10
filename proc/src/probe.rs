@@ -254,10 +254,10 @@ fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2
     validate!(attributes.skip.is_some(); !attributes => [bookmarks, default, kind, name, tags])?;
 
     if let Some(tags) = &attributes.tags {
-        if attributes.kind.is_some() {
+        if !is_option(&field.ty) {
             return Err(syn::Error::new_spanned(
                 tags.tags,
-                "Field-level tags cannot be combined with other field kinds",
+                "Field-level #[egui_probe(tags inlined)] is supported only for Option fields",
             ));
         }
     }

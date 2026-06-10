@@ -48,8 +48,8 @@ struct DemoValue {
     float32: f32,
 
     // #[egui_probe(default = 1)]
-    #[egui_probe(tags inlined)]
-    u8: u8,
+    #[egui_probe(tags inlined, range = 0..=9)]
+    u8: Option<u8>,
 
     // #[egui_probe(default = false)]
     maybe_boolean1: Option<bool>,
@@ -105,7 +105,7 @@ impl EguiProbeDemoApp {
             value: DemoValue {
                 boolean: true,
                 float32: 1.0,
-                u8: 1,
+                u8: Some(1),
                 maybe_boolean1: None,
                 maybe_boolean2: None,
                 inlined_tags: InlinedTags::Empty,
