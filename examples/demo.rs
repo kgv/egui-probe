@@ -24,11 +24,11 @@ fn custom_probe(_: &mut Foo, ui: &mut egui::Ui, _: &egui_probe::Style) -> egui::
 struct UpTo7(#[egui_probe(range = ..=7)] u32);
 
 #[derive(EguiProbe)]
-#[egui_probe(tags inlined)]
-enum InlinedTags {
+#[egui_probe(inline)]
+enum Inline {
     Empty,
     #[egui_probe(transparent)]
-    InlinedFloat(#[egui_probe(default = 999.0)] f32),
+    InlineFloat(#[egui_probe(default = 999.0)] f32),
     Text {
         #[egui_probe(default = String::from("FROM"), multiline)]
         text: String,
@@ -36,8 +36,8 @@ enum InlinedTags {
 }
 
 #[derive(EguiProbe)]
-#[egui_probe(tags combobox)]
-enum ComboBoxTags {
+#[egui_probe(combobox)]
+enum ComboBox {
     Empty,
     #[egui_probe(default)]
     Num {
@@ -94,10 +94,10 @@ struct DemoValue {
     inner: InnerValue,
 
     #[egui_probe(default)]
-    inlined_tags: InlinedTags,
+    inline: Inline,
 
     #[egui_probe(default)]
-    option_combobox_tags: Option<ComboBoxTags>,
+    option_combobox: Option<ComboBox>,
 
     array: [u8; 3],
 
@@ -140,8 +140,8 @@ impl EguiProbeDemoApp {
                     line: "Hello, world!".to_owned(),
                     multi_line: "Hello,\nworld!".to_owned(),
                 },
-                inlined_tags: InlinedTags::Empty,
-                option_combobox_tags: None,
+                inline: Inline::Empty,
+                option_combobox: None,
                 array: [0, 1, 2],
                 vector: vec![false, true, false],
                 frozen_vector: vec![false, true, false],

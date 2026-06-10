@@ -15,7 +15,7 @@ impl Default for BooleanStyle {
 
 #[derive(Clone, Copy, Debug)]
 pub enum VariantsStyle {
-    Inlined,
+    Inline,
     ComboBox,
 }
 

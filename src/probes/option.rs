@@ -63,7 +63,7 @@ pub fn option_probe_with<T>(
                             }
                         });
                 }
-                crate::style::VariantsStyle::Inlined => {
+                crate::style::VariantsStyle::Inline => {
                     ui.horizontal(|ui| {
                         if ui.selectable_label(!checked, "Disable").clicked() {
                             checked = false;

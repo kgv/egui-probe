@@ -1,12 +1,12 @@
 #![allow(clippy::use_self)]
 
 use self::keywords::{
-    bookmarks, by, combobox, default, frozen, inlined, multiline, name, range, rgb, rgba,
-    rgba_premultiplied, rgba_unmultiplied, skip, tags, toggle_switch, transparent, with,
+    bookmarks, by, combobox, default, frozen, inline, multiline, name, range, rgb, rgba,
+    rgba_premultiplied, rgba_unmultiplied, skip, toggle_switch, transparent, with,
 };
 use crate::name_display::NameDisplay as _;
 use proc_easy::EasyArgument as _;
-use syn::{DataEnum, parse::Parse, spanned::Spanned as _};
+use syn::{parse::Parse, spanned::Spanned as _};
 
 macro_rules! validate {
     ($condition:expr; !$attributes:expr => [ $($attribute:ident),+ ]) => {
@@ -32,7 +32,7 @@ mod keywords {
     proc_easy::easy_token!(by);
     proc_easy::easy_token!(combobox);
     proc_easy::easy_token!(frozen);
-    proc_easy::easy_token!(inlined);
+    proc_easy::easy_token!(inline);
     proc_easy::easy_token!(multiline);
     proc_easy::easy_token!(name);
     proc_easy::easy_token!(default);
@@ -42,7 +42,6 @@ mod keywords {
     proc_easy::easy_token!(rgba_unmultiplied);
     proc_easy::easy_token!(rgba);
     proc_easy::easy_token!(skip);
-    proc_easy::easy_token!(tags);
     proc_easy::easy_token!(toggle_switch);
     proc_easy::easy_token!(transparent);
     proc_easy::easy_token!(with);
@@ -127,16 +126,16 @@ proc_easy::easy_argument! {
 }
 
 proc_easy::easy_argument_group! {
-    enum TagsKind {
+    enum EnumKind {
         ComboBox(combobox),
-        Inlined(inlined),
+        Inline(inline),
     }
 }
 
-proc_easy::easy_argument! {
-    struct EnumTags {
-        tags: tags,
-        kind: TagsKind,
+proc_easy::easy_argument_value! {
+    struct Enum {
+        r#enum: syn::Token![enum],
+        kind: EnumKind,
     }
 }
 
@@ -192,10 +191,10 @@ proc_easy::easy_attributes! {
     @(egui_probe)
     struct FieldAttributes {
         bookmarks: Option<Bookmarks>,
-        kind: Option<FieldKind>,
-        name: Option<Name>,
         default: Option<Default>,
-        tags: Option<EnumTags>,
+        field_kind: Option<FieldKind>,
+        name: Option<Name>,
+        r#enum: Option<Enum>,
         // If `skip` is present, the field will be skipped.
         // Error will be generated if other attributes are present together with
         // `skip`.
@@ -207,7 +206,7 @@ proc_easy::easy_attributes! {
     @(egui_probe)
     struct TypeAttributes {
         name: Option<Name>,
-        tags: Option<EnumTags>,
+        r#enum: Option<Enum>,
         transparent: Option<transparent>,
         where_clause: Option<WhereClause>,
     }
@@ -241,7 +240,7 @@ fn make_name(name: Option<Name>, ident: Option<&syn::Ident>) -> proc_macro2::Tok
 fn field_name(field: &syn::Field) -> syn::Result<Option<proc_macro2::TokenStream>> {
     let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
 
-    validate!(attributes.skip.is_some(); !attributes => [bookmarks, default, kind, name])?;
+    validate!(attributes.skip.is_some(); !attributes => [bookmarks, default, field_kind, name])?;
 
     let name = make_name(attributes.name, field.ident.as_ref());
 
@@ -251,20 +250,20 @@ fn field_name(field: &syn::Field) -> syn::Result<Option<proc_macro2::TokenStream
 fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2::TokenStream>> {
     let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
 
-    validate!(attributes.skip.is_some(); !attributes => [bookmarks, default, kind, name, tags])?;
+    validate!(attributes.skip.is_some(); !attributes => [bookmarks, default, field_kind, name, r#enum])?;
 
-    if let Some(tags) = &attributes.tags {
+    if let Some(enum_kind) = &attributes.r#enum {
         if !is_option(&field.ty) {
-            return Err(syn::Error::new_spanned(
-                tags.tags,
-                "Field-level #[egui_probe(tags inlined)] is supported only for Option fields",
+            return Err(syn::Error::new(
+                enum_kind.name_span(),
+                "Field-level #[egui_probe(inline)] is supported only for Option fields",
             ));
         }
     }
 
     let binding = quote::format_ident!("__{}", idx);
 
-    let mut tokens = match attributes.kind {
+    let mut tokens = match attributes.field_kind {
         None => {
             if is_option(&field.ty) {
                 let default = default_unnamed_field(field)?;
@@ -348,10 +347,10 @@ fn field_probe(idx: usize, field: &syn::Field) -> syn::Result<Option<proc_macro2
         }
     };
 
-    if let Some(tags) = attributes.tags {
-        let variants_style = match tags.kind {
-            TagsKind::Inlined(_) => quote::quote!(::egui_probe::VariantsStyle::Inlined),
-            TagsKind::ComboBox(_) => quote::quote!(::egui_probe::VariantsStyle::ComboBox),
+    if let Some(r#enum) = attributes.r#enum {
+        let variants_style = match r#enum.kind {
+            EnumKind::Inline(_) => quote::quote!(::egui_probe::VariantsStyle::Inline),
+            EnumKind::ComboBox(_) => quote::quote!(::egui_probe::VariantsStyle::ComboBox),
         };
 
         if is_option(&field.ty) {
@@ -759,9 +758,9 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
 
     match input.data {
         syn::Data::Struct(data) => {
-            if attributes.tags.is_some() {
-                return Err(syn::Error::new_spanned(
-                    attributes.tags.unwrap().tags,
+            if let Some(enum_kind) = attributes.r#enum {
+                return Err(syn::Error::new(
+                    enum_kind.name_span(),
                     "Tags may be specified only for enums",
                 ));
             }
@@ -897,14 +896,14 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
                 .map(|variant| variant_iterate_inner(variant))
                 .collect::<syn::Result<Vec<_>>>()?;
 
-            let variants_style = match attributes.tags {
+            let variants_style = match attributes.r#enum {
                 None => quote::quote!(_style.variants),
-                Some(EnumTags {
-                    kind: TagsKind::Inlined(_),
+                Some(Enum {
+                    kind: EnumKind::Inline(_),
                     ..
-                }) => quote::quote!(::egui_probe::VariantsStyle::Inlined),
-                Some(EnumTags {
-                    kind: TagsKind::ComboBox(_),
+                }) => quote::quote!(::egui_probe::VariantsStyle::Inline),
+                Some(Enum {
+                    kind: EnumKind::ComboBox(_),
                     ..
                 }) => quote::quote!(::egui_probe::VariantsStyle::ComboBox),
             };
@@ -918,7 +917,7 @@ pub fn derive(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> 
 
                             ui.horizontal(|_ui| {
                                 match #variants_style {
-                                    ::egui_probe::VariantsStyle::Inlined => {
+                                    ::egui_probe::VariantsStyle::Inline => {
                                         let _in_cbox = false;
                                         #(
                                             #variants_probe

@@ -16,12 +16,12 @@ fn main() {
 struct UpTo7(#[egui_probe(range = ..=7)] u32);
 
 #[derive(EguiProbe)]
-#[egui_probe(tags inlined)]
-enum InlinedTags {
+#[egui_probe(enum = inline)]
+enum Inline {
     // #[default]
     Empty,
-    #[egui_probe(transparent)]
-    InlinedFloat(#[egui_probe(default = 999.0)] f32),
+    #[egui_probe(default, transparent)]
+    InlineFloat(#[egui_probe(default = 999.0)] f32),
     Text {
         #[egui_probe(default = String::from("FROM"), multiline)]
         text: String,
@@ -29,8 +29,8 @@ enum InlinedTags {
 }
 
 #[derive(EguiProbe)]
-#[egui_probe(tags combobox)]
-enum ComboBoxTags {
+#[egui_probe(enum = combobox)]
+enum ComboBox {
     Empty,
     #[egui_probe(default, transparent)]
     Num {
@@ -48,21 +48,31 @@ struct DemoValue {
     float32: f32,
 
     // #[egui_probe(default = 1)]
-    #[egui_probe(tags inlined, range = 0..=9)]
+    #[egui_probe(enum = combobox, range = 0..=9)]
     u8: Option<u8>,
 
     // #[egui_probe(default = false)]
     maybe_boolean1: Option<bool>,
-    #[egui_probe(tags inlined, default = true)]
+    #[egui_probe(enum = inline, default = true)]
     maybe_boolean2: Option<bool>,
 
-    // #[egui_probe(default = InlinedTags::InlinedFloat(4.9))]
+    // #[egui_probe(default = Inline::InlineFloat(4.9))]
     // #[egui_probe(default = ProbeDefault::probe_default())]
     #[egui_probe(default)]
-    inlined_tags: InlinedTags,
+    inline: Inline,
+
+    #[egui_probe(default)]
+    option_default_enum_inline: Option<Inline>,
+
+    #[egui_probe(enum = combobox, default)]
+    option_combobox_enum_inline: Option<Inline>,
+
+    #[egui_probe(enum = inline, default)]
+    option_inline_enum_inline: Option<Inline>,
+
     // #[egui_probe(default = ProbeDefault::probe_default())]
     #[egui_probe(default)]
-    option_combobox_tags: Option<ComboBoxTags>,
+    option_combobox_enum_combobox: Option<ComboBox>,
     //
     // #[egui_probe(with custom_probe)]
     // custom: Foo,
@@ -108,8 +118,13 @@ impl EguiProbeDemoApp {
                 u8: Some(1),
                 maybe_boolean1: None,
                 maybe_boolean2: None,
-                inlined_tags: InlinedTags::Empty,
-                option_combobox_tags: None,
+                inline: Inline::Empty,
+
+                option_default_enum_inline: None,
+                option_combobox_enum_inline: None,
+                option_inline_enum_inline: None,
+
+                option_combobox_enum_combobox: None,
             },
         }
     }
