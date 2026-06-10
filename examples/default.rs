@@ -32,7 +32,7 @@ enum InlinedTags {
 #[egui_probe(tags combobox)]
 enum ComboBoxTags {
     Empty,
-    #[egui_probe(default)]
+    #[egui_probe(default, transparent)]
     Num {
         #[egui_probe(range = 2..=9, default = 2)]
         value: usize,
@@ -60,8 +60,8 @@ struct DemoValue {
     #[egui_probe(default)]
     inlined_tags: InlinedTags,
     // #[egui_probe(default = ProbeDefault::probe_default())]
-    // #[egui_probe(default)]
-    // option_combobox_tags: Option<ComboBoxTags>,
+    #[egui_probe(default)]
+    option_combobox_tags: Option<ComboBoxTags>,
     //
     // #[egui_probe(with custom_probe)]
     // custom: Foo,
@@ -108,7 +108,7 @@ impl EguiProbeDemoApp {
                 maybe_boolean1: None,
                 maybe_boolean2: None,
                 inlined_tags: InlinedTags::Empty,
-                // option_combobox_tags: None,
+                option_combobox_tags: None,
             },
         }
     }

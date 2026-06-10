@@ -1,9 +1,9 @@
 use crate::{EguiProbe, Style};
-use egui::{ComboBox, Context, Id, Response, Ui};
+use egui::{ComboBox, Response, Ui};
 
 pub struct EguiProbeOption<'a, T, F> {
     pub value: &'a mut Option<T>,
-    pub default: F,
+    pub default_some: F,
 }
 
 impl<'a, T, F> EguiProbe for EguiProbeOption<'a, T, F>
@@ -12,31 +12,13 @@ where
     F: FnMut() -> T,
 {
     fn probe(&mut self, ui: &mut egui::Ui, style: &Style) -> egui::Response {
-        let Self { value, default } = self;
-        option_probe_with(value, ui, style, default, |value, ui, style| {
+        let Self {
+            value,
+            default_some,
+        } = self;
+        option_probe_with(value, ui, style, default_some, |value, ui, style| {
             value.probe(ui, style)
         })
-        // ui.horizontal(|ui| {
-        //     let mut checked = self.value.is_some();
-
-        //     let mut response = ui.checkbox(&mut checked, "");
-
-        //     if response.clicked() {
-        //         if checked {
-        //             *self.value = (self.default)();
-        //         } else {
-        //             *self.value = None;
-        //         }
-        //         response.mark_changed();
-        //     }
-
-        //     if let Some(value) = self.value.as_mut() {
-        //         response |= value.probe(ui, style);
-        //     }
-
-        //     response
-        // })
-        // .inner
     }
 
     fn iterate_inner(
@@ -91,16 +73,17 @@ pub fn option_probe_with<T>(
                 _ => {}
             }
 
-            let id = ui.next_auto_id();
+            // let id = ui.next_auto_id();
             if let Some(value) = value {
                 if probe(value, ui, style).changed() {
-                    State::new(value.clone()).store(ui, id);
+                    // State::new(value.clone()).store(ui, id);
                     changed = true;
                 }
             } else {
                 ui.disable();
-                let mut state = State::load(ui, id).unwrap_or_else(|| State::new(default_some()));
-                probe(&mut state.default_some, ui, style);
+                // let mut state = State::load(ui, id).unwrap_or_else(|| State::new(default_some()));
+                // probe(&mut state.default_some, ui, style);
+                probe(&mut default_some(), ui, style);
             }
         })
         .response;
@@ -112,26 +95,26 @@ pub fn option_probe_with<T>(
     response
 }
 
-struct State<T> {
-    default_some: T,
-}
+// struct State<T> {
+//     default_some: T,
+// }
 
-impl<T> State<T> {
-    fn new(default_some: T) -> Self {
-        Self { default_some }
-    }
-}
+// impl<T> State<T> {
+//     fn new(default_some: T) -> Self {
+//         Self { default_some }
+//     }
+// }
 
-impl<T: 'static + Clone + Send + Sync> State<T> {
-    fn load(ctx: &Context, id: Id) -> Option<State<T>> {
-        let default_some = ctx.data_mut(|data| data.get_temp(id))?;
-        Some(State { default_some })
-    }
+// impl<T: 'static + Clone + Send + Sync> State<T> {
+//     fn load(ctx: &Context, id: Id) -> Option<State<T>> {
+//         let default_some = ctx.data_mut(|data| data.get_temp(id))?;
+//         Some(State { default_some })
+//     }
 
-    fn store(self, ctx: &Context, id: Id) {
-        ctx.data_mut(|data| data.insert_temp(id, self.default_some));
-    }
-}
+//     fn store(self, ctx: &Context, id: Id) {
+//         ctx.data_mut(|data| data.insert_temp(id, self.default_some));
+//     }
+// }
 
 // impl<T> EguiProbe for Option<T>
 // where

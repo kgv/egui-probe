@@ -212,12 +212,18 @@ pub mod customize {
     use std::ops::RangeFull;
 
     #[inline(always)]
-    pub fn probe_option<'a, T, F>(value: &'a mut Option<T>, default: F) -> EguiProbeOption<'a, T, F>
+    pub fn probe_option<'a, T, F>(
+        value: &'a mut Option<T>,
+        default_some: F,
+    ) -> EguiProbeOption<'a, T, F>
     where
         T: EguiProbe,
         F: FnMut() -> T,
     {
-        EguiProbeOption { value, default }
+        EguiProbeOption {
+            value,
+            default_some,
+        }
     }
 
     #[inline(always)]

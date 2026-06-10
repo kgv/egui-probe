@@ -585,9 +585,6 @@ fn variant_iterate_inner(variant: &syn::Variant) -> syn::Result<proc_macro2::Tok
 
 // Default
 
-// None => quote::quote!(::egui_probe::ProbeDefault::probe_default()),
-// Some(expr) if is_option => quote::quote!(::core::option::Option::Some(#expr)),
-// Some(expr) => quote::quote!(#expr),
 fn default_unnamed_field(field: &syn::Field) -> syn::Result<proc_macro2::TokenStream> {
     let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
 
@@ -602,50 +599,19 @@ fn default_unnamed_field(field: &syn::Field) -> syn::Result<proc_macro2::TokenSt
         }) => quote::quote!(#expr),
         None => quote::quote!(::core::default::Default::default()),
     };
-    if is_option(&field.ty) {
-        // expr = quote::quote!(::core::option::Option::Some(#expr));
-    }
     Ok(expr)
 }
 
-// fn default_unnamed_field(field: &syn::Field) -> syn::Result<proc_macro2::TokenStream> {
-//     let attributes: FieldAttributes = proc_easy::EasyAttributes::parse(&field.attrs, field.span())?;
-
-//     let mut expr = match attributes.default {
-//         Some(Default {
-//             expr: DefaultExpr(None),
-//             ..
-//         }) => quote::quote!(::egui_probe::ProbeDefault::probe_default()),
-//         Some(Default {
-//             expr: DefaultExpr(Some(expr)),
-//             ..
-//         }) => quote::quote!(#expr),
-//         None => quote::quote!(::core::default::Default::default()),
-//     };
-//     if is_option(&field.ty) {
-//         // expr = quote::quote!(::core::option::Option::Some(#expr));
-//     }
-//     Ok(expr)
-// }
-
 fn default_field(field: &syn::Field) -> syn::Result<proc_macro2::TokenStream> {
-    let expr = default_unnamed_field(field)?;
+    let mut expr = default_unnamed_field(field)?;
+
+    if is_option(&field.ty) {
+        expr = quote::quote!(::core::option::Option::Some(#expr));
+    }
 
     Ok(match &field.ident {
-        Some(ident) => {
-            if is_option(&field.ty) {
-                quote::quote!(#ident: ::core::option::Option::Some(#expr))
-            } else {
-                quote::quote!(#ident: #expr)
-            }
-        }
-        None => {
-            if is_option(&field.ty) {
-                quote::quote!(::core::option::Option::Some(#expr))
-            } else {
-                quote::quote!(#expr)
-            }
-        }
+        Some(ident) => quote::quote!(#ident: #expr),
+        None => quote::quote!(#expr),
     })
 }
 
